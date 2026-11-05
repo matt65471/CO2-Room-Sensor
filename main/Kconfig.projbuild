@@ -1,0 +1,9 @@
+menu "CO2 Sensor Wi-Fi"
+
+    config WIFI_SSID
+        string "wifi name"
+
+    config WIFI_PASSWORD
+        string "password"
+
+endmenu
