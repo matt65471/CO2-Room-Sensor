@@ -7,3 +7,26 @@ menu "CO2 Sensor Wi-Fi"
         string "password"
 
 endmenu
+
+menu "Supabase"
+
+    config SUPABASE_URL
+        string "Project URL"
+        default "https://YOUR-PROJECT.supabase.co"
+        help
+            Supabase dashboard -> Project Settings -> API -> Project URL.
+            No trailing slash.
+
+    config SUPABASE_ANON_KEY
+        string "Anon (publishable) API key"
+        default "YOUR-ANON-KEY"
+        help
+            Supabase dashboard -> Project Settings -> API Keys -> anon / publishable key.
+            Never use the service_role (secret) key on the device.
+
+    config READING_INTERVAL_SEC
+        int "Seconds between readings"
+        default 60
+        range 5 86400
+
+endmenu

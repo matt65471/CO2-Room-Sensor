@@ -1,8 +1,10 @@
 #include <string.h>
 
+#include "device_id.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_random.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -11,6 +13,7 @@
 #include "lwip/netdb.h"
 #include "nvs_flash.h"
 #include "ping/ping_sock.h"
+#include "supabase.h"
 
 #define WIFI_CONNECTED_BIT BIT0
 
@@ -94,7 +97,7 @@ static void ping_host(const char *host)
     ESP_ERROR_CHECK(esp_ping_start(handle));
 }
 
-static void wifi_start(void)
+static void nvs_init(void)
 {
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -102,7 +105,10 @@ static void wifi_start(void)
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK(err);
+}
 
+static void wifi_start(void)
+{
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
@@ -122,9 +128,19 @@ static void wifi_start(void)
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
+// TODO: replace with a real sensor reading. Returns a fake value between 400 and 1200 ppm.
+static int read_co2_ppm(void)
+{
+    return 400 + (int)(esp_random() % 801);
+}
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "CO2 room sensor starting");
+
+    nvs_init();
+    device_id_init();
+    ESP_LOGI(TAG, "Device ID: %s", device_id_get());
 
     wifi_events = xEventGroupCreate();
     wifi_start();
@@ -134,8 +150,15 @@ void app_main(void)
     ping_host("google.com");
 
     while (1) {
-        // Sensor reading will go here
-        ESP_LOGI(TAG, "Running");
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        int ppm = read_co2_ppm();
+
+        // Only try to upload while Wi-Fi is up; readings taken while offline are skipped
+        if (xEventGroupGetBits(wifi_events) & WIFI_CONNECTED_BIT) {
+            supabase_send_reading(device_id_get(), ppm);
+        } else {
+            ESP_LOGW(TAG, "Wi-Fi down, skipping upload of %d ppm", ppm);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(CONFIG_READING_INTERVAL_SEC * 1000));
     }
 }
