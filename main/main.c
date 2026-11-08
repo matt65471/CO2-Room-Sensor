@@ -9,10 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/task.h"
-#include "lwip/inet.h"
-#include "lwip/netdb.h"
 #include "nvs_flash.h"
-#include "ping/ping_sock.h"
 #include "supabase.h"
 
 #define WIFI_CONNECTED_BIT BIT0
@@ -35,66 +32,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t base, int32_t id, voi
         ESP_LOGI(TAG, "Connected, IP address: " IPSTR, IP2STR(&event->ip_info.ip));
         xEventGroupSetBits(wifi_events, WIFI_CONNECTED_BIT);
     }
-}
-
-static void on_ping_success(esp_ping_handle_t handle, void *args)
-{
-    uint16_t seqno;
-    uint32_t time_ms;
-    ip_addr_t from;
-    esp_ping_get_profile(handle, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
-    esp_ping_get_profile(handle, ESP_PING_PROF_TIMEGAP, &time_ms, sizeof(time_ms));
-    esp_ping_get_profile(handle, ESP_PING_PROF_IPADDR, &from, sizeof(from));
-    ESP_LOGI(TAG, "Ping reply from %s: seq=%u time=%lu ms", ipaddr_ntoa(&from), seqno, time_ms);
-}
-
-static void on_ping_timeout(esp_ping_handle_t handle, void *args)
-{
-    uint16_t seqno;
-    esp_ping_get_profile(handle, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
-    ESP_LOGW(TAG, "Ping timed out: seq=%u", seqno);
-}
-
-static void on_ping_end(esp_ping_handle_t handle, void *args)
-{
-    uint32_t sent;
-    uint32_t received;
-    esp_ping_get_profile(handle, ESP_PING_PROF_REQUEST, &sent, sizeof(sent));
-    esp_ping_get_profile(handle, ESP_PING_PROF_REPLY, &received, sizeof(received));
-    ESP_LOGI(TAG, "Ping finished: %lu sent, %lu received", sent, received);
-    esp_ping_delete_session(handle);
-}
-
-static void ping_host(const char *host)
-{
-    struct addrinfo hints = {.ai_family = AF_INET};
-    struct addrinfo *result = NULL;
-    if (getaddrinfo(host, NULL, &hints, &result) != 0 || result == NULL) {
-        ESP_LOGE(TAG, "Could not look up %s (DNS failed)", host);
-        return;
-    }
-
-    ip_addr_t target = {0};
-    struct in_addr address = ((struct sockaddr_in *)result->ai_addr)->sin_addr;
-    inet_addr_to_ip4addr(ip_2_ip4(&target), &address);
-    target.type = IPADDR_TYPE_V4;
-    freeaddrinfo(result);
-
-    ESP_LOGI(TAG, "Pinging %s (%s)", host, ipaddr_ntoa(&target));
-
-    esp_ping_config_t config = ESP_PING_DEFAULT_CONFIG();
-    config.target_addr = target;
-    config.count = 4;
-
-    esp_ping_callbacks_t callbacks = {
-        .on_ping_success = on_ping_success,
-        .on_ping_timeout = on_ping_timeout,
-        .on_ping_end = on_ping_end,
-    };
-
-    esp_ping_handle_t handle;
-    ESP_ERROR_CHECK(esp_ping_new_session(&config, &callbacks, &handle));
-    ESP_ERROR_CHECK(esp_ping_start(handle));
 }
 
 static void nvs_init(void)
@@ -147,7 +84,6 @@ void app_main(void)
 
     // Wait until the router has assigned an IP address
     xEventGroupWaitBits(wifi_events, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
-    ping_host("google.com");
 
     while (1) {
         int ppm = read_co2_ppm();
