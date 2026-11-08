@@ -86,6 +86,7 @@ void device_id_init(void)
         ESP_LOGI(TAG, "Generated new device ID");
     } else {
         ESP_ERROR_CHECK(err);
+        ESP_LOGI(TAG, "Loaded existing device ID from flash");
     }
     nvs_close(nvs);
 

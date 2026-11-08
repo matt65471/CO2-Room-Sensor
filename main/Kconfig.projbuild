@@ -10,6 +10,12 @@ endmenu
 
 menu "Supabase"
 
+    config SUPABASE_UPLOAD
+        bool "Upload readings to Supabase"
+        default n
+        help
+            When off, Wi-Fi is not started and readings are only printed to the serial log.
+
     config SUPABASE_URL
         string "Project URL"
         default "https://YOUR-PROJECT.supabase.co"
@@ -26,7 +32,7 @@ menu "Supabase"
 
     config READING_INTERVAL_SEC
         int "Seconds between readings"
-        default 60
+        default 5
         range 5 86400
 
 endmenu
