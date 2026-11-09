@@ -63,7 +63,12 @@ router.get('/readings', async (req, res) => {
     range,
     since,
     bucketSecs,
-    points: (data as { t: string; ppm: unknown }[]).map((p) => ({ t: p.t, ppm: Number(p.ppm) })),
+    points: (data as { t: string; ppm: unknown; temp_c: unknown; rh_pct: unknown }[]).map((p) => ({
+      t: p.t,
+      ppm: num(p.ppm),
+      tempC: num(p.temp_c),
+      rhPct: num(p.rh_pct),
+    })),
   });
 });
 
@@ -79,24 +84,37 @@ router.get('/summary', async (req, res) => {
     dbError(res, error);
     return;
   }
-  const row = (data as Record<string, unknown>[])[0] ?? {};
-  const slope = num(row.slope_ppm_per_hour);
-  const hourCount = Number(row.count_1h ?? 0);
+  const rows = data as Record<string, unknown>[];
+  const first = rows[0] ?? {};
+  const slope = num(first.slope_ppm_per_hour);
+  const hourCount = Number(first.count_1h ?? 0);
 
-  res.json({
-    last24h: {
+  // One row per metric ('co2', 'temp', 'humidity'); the trend/latest columns repeat on every row
+  const stats = (metric: string) => {
+    const row = rows.find((r) => r.metric === metric) ?? {};
+    return {
       mean: num(row.mean_24h),
       median: num(row.median_24h),
       high: num(row.high_24h),
       highAt: (row.high_at as string | null) ?? null,
       count: Number(row.count_24h ?? 0),
+    };
+  };
+
+  res.json({
+    last24h: {
+      co2: stats('co2'),
+      temp: stats('temp'),
+      humidity: stats('humidity'),
     },
     lastHour: {
       slopePpmPerHour: slope === null ? null : Math.round(slope),
       direction: classifyTrend(slope, hourCount),
-      first: num(row.first_1h),
-      latest: num(row.latest_1h),
+      first: num(first.first_1h),
+      latest: num(first.latest_1h),
       count: hourCount,
     },
+    latestTempC: num(first.latest_temp_c),
+    latestRhPct: num(first.latest_rh_pct),
   });
 });

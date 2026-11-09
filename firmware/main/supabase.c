@@ -30,10 +30,12 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-esp_err_t supabase_send_reading(const char *device_id, int ppm)
+esp_err_t supabase_send_reading(const char *device_id, int ppm, float temp_c, float rh_pct)
 {
-    char body[96];
-    snprintf(body, sizeof(body), "{\"device_id\":\"%s\",\"ppm\":%d}", device_id, ppm);
+    // e.g. {"device_id":"089ad9ac-...","ppm":812,"temp_c":22.4,"rh_pct":41.0}
+    char body[160];
+    snprintf(body, sizeof(body), "{\"device_id\":\"%s\",\"ppm\":%d,\"temp_c\":%.1f,\"rh_pct\":%.1f}",
+             device_id, ppm, temp_c, rh_pct);
 
     response_t resp = {0};
     esp_http_client_config_t config = {
@@ -59,7 +61,7 @@ esp_err_t supabase_send_reading(const char *device_id, int ppm)
     if (err == ESP_OK) {
         int status = esp_http_client_get_status_code(client);
         if (status == 201) {
-            ESP_LOGI(TAG, "Stored reading: %d ppm", ppm);
+            ESP_LOGI(TAG, "Stored reading: %d ppm, %.1f C, %.1f %%", ppm, temp_c, rh_pct);
         } else {
             ESP_LOGE(TAG, "Supabase returned HTTP %d: %s", status, resp.buf);
             err = ESP_FAIL;

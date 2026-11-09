@@ -21,6 +21,10 @@ Only put the **anon/publishable** key on the device. Never use the `service_role
 | `device_id`  | uuid             | ESP32 (stored in its flash)    |
 | `created_at` | timestamptz(0)   | database, to the second        |
 | `ppm`        | integer          | ESP32                          |
+| `temp_c`     | numeric(4,1)     | ESP32, optional (°C)           |
+| `rh_pct`     | numeric(4,1)     | ESP32, optional (% humidity)   |
+
+If your table was created before `temp_c` / `rh_pct` existed, run `add_temp_humidity.sql` once.
 
 ## Device ID
 

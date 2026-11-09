@@ -1,6 +1,6 @@
 -- Queries used by the dashboard app (app/backend).
--- Run once in your Supabase project AFTER schema.sql: Dashboard -> SQL Editor -> New query -> paste -> Run.
--- Safe to re-run: everything uses "create or replace".
+-- Run in your Supabase project AFTER schema.sql (and add_temp_humidity.sql if your table predates it):
+-- Dashboard -> SQL Editor -> New query -> paste -> Run. Safe to re-run; re-run it whenever this file changes.
 --
 -- Only the backend's secret (service_role) key can use these. The device's anon key stays insert-only.
 
@@ -13,16 +13,23 @@ select device_id,
 from readings
 group by device_id;
 
--- Readings for the graph, averaged into fixed time buckets so even 3 days of 5-second readings
--- come back as a few hundred points.
-create or replace function get_readings(p_device uuid, p_since timestamptz, p_bucket_secs int)
-returns table (t timestamptz, ppm numeric)
+-- Older versions of these functions returned different columns, and Postgres can't change a
+-- function's return type in place, so drop them first.
+drop function if exists get_readings(uuid, timestamptz, int);
+drop function if exists get_summary(uuid);
+
+-- Readings for the graph, averaged into fixed time buckets so even 3 days of readings
+-- come back as a few hundred points. avg() skips NULLs, so CO2-only rows don't affect temp/humidity.
+create function get_readings(p_device uuid, p_since timestamptz, p_bucket_secs int)
+returns table (t timestamptz, ppm numeric, temp_c numeric, rh_pct numeric)
 language sql
 stable
 set search_path = public
 as $$
   select date_bin(make_interval(secs => p_bucket_secs), r.created_at, p_since) as t,
-         round(avg(r.ppm), 1)                                                as ppm
+         round(avg(r.ppm), 1)    as ppm,
+         round(avg(r.temp_c), 2) as temp_c,
+         round(avg(r.rh_pct), 2) as rh_pct
   from readings r
   where r.device_id = p_device
     and r.created_at >= p_since
@@ -30,26 +37,30 @@ as $$
   order by 1;
 $$;
 
--- Statistics for the past 24 hours, plus the CO2 trend over the past hour.
--- The trend is the slope of a best-fit straight line through the past hour's readings, in ppm per hour.
-create or replace function get_summary(p_device uuid)
+-- Past-24-hour statistics, one row per metric ('co2', 'temp', 'humidity'), plus the CO2 trend over
+-- the past hour (repeated on every row) and the latest values. The trend is the slope of a best-fit
+-- straight line through the past hour's CO2 readings, in ppm per hour.
+create function get_summary(p_device uuid)
 returns table (
+  metric             text,
   mean_24h           numeric,
   median_24h         double precision,
-  high_24h           integer,
+  high_24h           numeric,
   high_at            timestamptz,
   count_24h          bigint,
   slope_ppm_per_hour double precision,
   first_1h           integer,
   latest_1h          integer,
-  count_1h           bigint
+  count_1h           bigint,
+  latest_temp_c      numeric,
+  latest_rh_pct      numeric
 )
 language sql
 stable
 set search_path = public
 as $$
   with day as (
-    select created_at, ppm
+    select created_at, ppm::numeric as ppm, temp_c, rh_pct
     from readings
     where device_id = p_device
       and created_at >= now() - interval '24 hours'
@@ -58,17 +69,53 @@ as $$
     select created_at, ppm
     from day
     where created_at >= now() - interval '1 hour'
+  ),
+  -- Reshape to (metric, value, time) so one set of aggregates covers all three metrics
+  metrics as (
+    select 'co2' as metric, ppm as value, created_at from day
+    union all
+    select 'temp', temp_c, created_at from day where temp_c is not null
+    union all
+    select 'humidity', rh_pct, created_at from day where rh_pct is not null
+  ),
+  stats as (
+    select m.metric,
+           round(avg(m.value), 2)                              as mean_24h,
+           percentile_cont(0.5) within group (order by m.value) as median_24h,
+           max(m.value)                                        as high_24h,
+           count(*)                                            as count_24h
+    from metrics m
+    group by m.metric
+  ),
+  trend as (
+    select regr_slope(ppm::float8, extract(epoch from created_at)::float8) * 3600 as slope,
+           count(*) as n
+    from hour
+  ),
+  latest as (
+    select temp_c, rh_pct
+    from day
+    where temp_c is not null or rh_pct is not null
+    order by created_at desc
+    limit 1
   )
-  select
-    (select round(avg(ppm), 1) from day),
-    (select percentile_cont(0.5) within group (order by ppm) from day),
-    (select max(ppm) from day),
-    (select created_at from day order by ppm desc, created_at desc limit 1),
-    (select count(*) from day),
-    (select regr_slope(ppm::float8, extract(epoch from created_at)::float8) * 3600 from hour),
-    (select ppm from hour order by created_at asc limit 1),
-    (select ppm from hour order by created_at desc limit 1),
-    (select count(*) from hour);
+  select names.metric,
+         s.mean_24h,
+         s.median_24h,
+         s.high_24h,
+         (select m.created_at from metrics m
+          where m.metric = names.metric
+          order by m.value desc, m.created_at desc limit 1),
+         coalesce(s.count_24h, 0),
+         trend.slope,
+         (select ppm::int from hour order by created_at asc limit 1),
+         (select ppm::int from hour order by created_at desc limit 1),
+         trend.n,
+         (select temp_c from latest),
+         (select rh_pct from latest)
+  from (values ('co2'), ('temp'), ('humidity')) as names(metric)
+  left join stats s on s.metric = names.metric
+  cross join trend;
 $$;
 
 -- Only the backend's secret key may read. Supabase usually grants table access automatically,

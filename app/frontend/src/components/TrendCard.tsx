@@ -1,4 +1,5 @@
 import type { Summary, TrendDirection } from '../api';
+import { formatValue } from '../metrics';
 
 const TREND: Record<TrendDirection, { arrow: string; label: string }> = {
   rising: { arrow: '↑', label: 'Rising' },
@@ -35,6 +36,11 @@ export default function TrendCard({ summary }: Props) {
         <span className="big">{latest === null ? '—' : latest}</span>
         <span className="muted">ppm</span>
         {quality && <span className={`badge ${quality.level}`}>{quality.label}</span>}
+        {(summary.latestTempC !== null || summary.latestRhPct !== null) && (
+          <span className="muted small latest-env">
+            {formatValue('temp', summary.latestTempC)} · {formatValue('humidity', summary.latestRhPct)} humidity
+          </span>
+        )}
       </div>
       <div className={`trend-dir ${direction}`}>
         <span className="arrow" aria-hidden>

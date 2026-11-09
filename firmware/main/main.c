@@ -111,7 +111,7 @@ void app_main(void)
 #if CONFIG_SUPABASE_UPLOAD
             // Only try to upload while Wi-Fi is up; readings taken while offline are skipped
             if (xEventGroupGetBits(wifi_events) & WIFI_CONNECTED_BIT) {
-                supabase_send_reading(device_id_get(), ppm);
+                supabase_send_reading(device_id_get(), ppm, temp_c, rh_pct);
             } else {
                 ESP_LOGW(TAG, "Wi-Fi down, skipping upload of %d ppm", ppm);
             }

@@ -8,27 +8,40 @@ import {
   type ReadingsResponse,
   type Summary,
 } from './api';
-import Co2Chart from './components/Co2Chart';
+import MetricToggle from './components/MetricToggle';
+import ReadingsChart from './components/ReadingsChart';
 import RangeTabs from './components/RangeTabs';
 import StatsTable from './components/StatsTable';
 import TrendCard from './components/TrendCard';
+import { isMetric, type Metric } from './metrics';
 
 const REFRESH_MS = 60_000;
 const DEVICE_KEY = 'co2.device';
+const METRICS_KEY = 'co2.graphMetrics';
 
-function loadSavedDevice(): string | null {
+function load(key: string): string | null {
   try {
-    return localStorage.getItem(DEVICE_KEY);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-function saveDevice(id: string): void {
+function save(key: string, value: string): void {
   try {
-    localStorage.setItem(DEVICE_KEY, id);
+    localStorage.setItem(key, value);
   } catch {
     // Storage blocked (e.g. private mode); the choice just won't be remembered
+  }
+}
+
+function loadSavedMetrics(): Metric[] {
+  try {
+    const saved = JSON.parse(load(METRICS_KEY) ?? '[]');
+    const valid = Array.isArray(saved) ? saved.filter(isMetric) : [];
+    return valid.length > 0 ? valid : ['co2'];
+  } catch {
+    return ['co2'];
   }
 }
 
@@ -41,6 +54,7 @@ export default function App() {
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [device, setDevice] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('24h');
+  const [graphMetrics, setGraphMetrics] = useState<Metric[]>(loadSavedMetrics);
   const [readings, setReadings] = useState<ReadingsResponse | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +74,7 @@ export default function App() {
         setDevice((current) => {
           const ids = list.map((d) => d.deviceId);
           if (current && ids.includes(current)) return current;
-          const saved = loadSavedDevice();
+          const saved = load(DEVICE_KEY);
           if (saved && ids.includes(saved)) return saved;
           return ids[0] ?? null;
         });
@@ -90,9 +104,14 @@ export default function App() {
     };
   }, [device, tick]);
 
+  function chooseMetrics(metrics: Metric[]) {
+    setGraphMetrics(metrics);
+    save(METRICS_KEY, JSON.stringify(metrics));
+  }
+
   function chooseDevice(id: string) {
     setDevice(id);
-    saveDevice(id);
+    save(DEVICE_KEY, id);
     setReadings(null);
     setSummary(null);
   }
@@ -127,10 +146,14 @@ export default function App() {
 
           <section className="card">
             <div className="card-header">
-              <h2>CO₂ level</h2>
+              <h2>Readings</h2>
               <RangeTabs value={range} onChange={setRange} />
             </div>
-            <Co2Chart data={readings && readings.range === range ? readings : null} />
+            <MetricToggle selected={graphMetrics} onChange={chooseMetrics} />
+            <ReadingsChart
+              data={readings && readings.range === range ? readings : null}
+              metrics={graphMetrics}
+            />
           </section>
 
           <StatsTable summary={summary} />

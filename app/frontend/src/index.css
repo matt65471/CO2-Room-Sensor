@@ -270,3 +270,50 @@ select {
 .trend-label {
   font-weight: 600;
 }
+
+/* Graph measurement toggles (multi-select chips) */
+.metric-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chip.on {
+  color: var(--text);
+  border-color: var(--chip-color);
+  background: color-mix(in srgb, var(--chip-color) 12%, transparent);
+}
+
+.chip:disabled {
+  cursor: not-allowed;
+}
+
+.chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--chip-color);
+}
+
+.chip.on .chip-dot {
+  background: var(--chip-color);
+}
+
+.latest-env {
+  flex-basis: 100%;
+}
