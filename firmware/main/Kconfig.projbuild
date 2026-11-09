@@ -18,14 +18,14 @@ menu "Supabase"
 
     config SUPABASE_URL
         string "Project URL"
-        default "https://YOUR-PROJECT.supabase.co"
+        default "https://ddztprtbewutziquuqqu.supabase.co/rest/v1/"
         help
             Supabase dashboard -> Project Settings -> API -> Project URL.
             No trailing slash.
 
     config SUPABASE_ANON_KEY
         string "Anon (publishable) API key"
-        default "YOUR-ANON-KEY"
+        default "sb_publishable_gdTOXI5XScfBns9iV0pC3A_RgsS2V-n"
         help
             Supabase dashboard -> Project Settings -> API Keys -> anon / publishable key.
             Never use the service_role (secret) key on the device.

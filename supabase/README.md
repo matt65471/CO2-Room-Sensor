@@ -5,7 +5,7 @@
 3. Go to **Project Settings → API** and copy:
    - the **Project URL** (e.g. `https://abcdxyz.supabase.co`)
    - the **anon / publishable** key
-4. Run `idf.py menuconfig`, open **Supabase**, and paste both values in.
+4. From the `firmware/` folder, run `idf.py menuconfig`, open **Supabase**, and paste both values in.
 5. Run `idf.py build flash monitor`. Every reading should log `Stored reading: … ppm`, and rows should appear under **Table Editor → readings**.
 
 Only put the **anon/publishable** key on the device. Never use the `service_role` / secret key there: it bypasses all security rules. With `schema.sql`'s policy, the anon key can only *insert* readings.
