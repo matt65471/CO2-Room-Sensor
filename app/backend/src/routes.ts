@@ -5,7 +5,7 @@ import { classifyTrend } from './trend.js';
 
 // How far back each graph range goes, and how wide each averaged point is
 const RANGES = {
-  '1h': { hours: 1, bucketSecs: 30 },
+  '1h': { hours: 1, bucketSecs: 60 },  // matches the sensor's 1-minute upload interval
   '24h': { hours: 24, bucketSecs: 5 * 60 },
   '3d': { hours: 72, bucketSecs: 15 * 60 },
 } as const;
