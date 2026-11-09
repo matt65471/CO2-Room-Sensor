@@ -1,0 +1,272 @@
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --border: #e2e4e9;
+  --text: #1c1f24;
+  --muted: #6b717c;
+  --accent: #2f7de1;
+  --good: #1f8a4c;
+  --fair: #b07d00;
+  --poor: #c73636;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111317;
+    --surface: #1a1d22;
+    --border: #2c3038;
+    --text: #e8eaee;
+    --muted: #9198a3;
+    --accent: #5a9cf0;
+    --good: #4cc27f;
+    --fair: #e0b23a;
+    --poor: #ef6b6b;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.4;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  display: grid;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+h2 {
+  font-size: 1rem;
+  margin: 0 0 12px;
+}
+
+.device-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  max-width: 100%;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 0;
+}
+
+.card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.card-header h2 {
+  margin: 0;
+}
+
+.error {
+  background: color-mix(in srgb, var(--poor) 12%, var(--surface));
+  border: 1px solid var(--poor);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.empty,
+.chart-placeholder {
+  color: var(--muted);
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.875rem;
+}
+
+/* Range tabs */
+.tabs {
+  display: inline-flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.tab {
+  font: inherit;
+  font-size: 0.875rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+/* Chart */
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.swatch {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  margin-left: 8px;
+}
+
+.swatch:first-child {
+  margin-left: 0;
+}
+
+/* Stats table */
+.stats {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stats th,
+.stats td {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.stats th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.stats td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Trend card */
+.trend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.trend-now {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.big {
+  font-size: 2.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.badge {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  align-self: center;
+}
+
+.badge.good {
+  color: var(--good);
+  background: color-mix(in srgb, var(--good) 14%, transparent);
+}
+
+.badge.fair {
+  color: var(--fair);
+  background: color-mix(in srgb, var(--fair) 16%, transparent);
+}
+
+.badge.poor {
+  color: var(--poor);
+  background: color-mix(in srgb, var(--poor) 14%, transparent);
+}
+
+.trend-dir {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.arrow {
+  font-size: 2rem;
+  line-height: 1;
+  width: 2.5rem;
+  text-align: center;
+}
+
+.trend-dir.rising .arrow {
+  color: var(--poor);
+}
+
+.trend-dir.falling .arrow {
+  color: var(--good);
+}
+
+.trend-dir.steady .arrow,
+.trend-dir.insufficient .arrow {
+  color: var(--muted);
+}
+
+.trend-label {
+  font-weight: 600;
+}

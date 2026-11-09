@@ -1,0 +1,16 @@
+{
+  "name": "co2-room-sensor-app",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,green \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build --workspaces",
+    "test": "npm test -w backend"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  }
+}

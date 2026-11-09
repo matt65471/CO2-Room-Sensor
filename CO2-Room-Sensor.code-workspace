@@ -1,13 +1,27 @@
 {
     "folders": [
-        { "name": "firmware", "path": "firmware" },
-        { "name": "supabase", "path": "supabase" },
-        { "name": "root", "path": "." }
+        {
+            "name": "firmware",
+            "path": "firmware"
+        },
+        {
+            "name": "supabase",
+            "path": "supabase"
+        },
+        {
+            "name": "app",
+            "path": "app"
+        },
+        {
+            "name": "root",
+            "path": "."
+        }
     ],
     "settings": {
         "files.exclude": {
             "firmware": true,
-            "supabase": true
+            "supabase": true,
+            "app": true
         }
     }
 }

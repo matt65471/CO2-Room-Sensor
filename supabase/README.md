@@ -8,6 +8,9 @@
 4. From the `firmware/` folder, run `idf.py menuconfig`, open **Supabase**, and paste both values in.
 5. Run `idf.py build flash monitor`. Every reading should log `Stored reading: … ppm`, and rows should appear under **Table Editor → readings**.
 
+6. For the dashboard app, also run **`app_queries.sql`** in the SQL Editor. It adds a `devices` view and the
+   `get_readings` / `get_summary` functions, readable only with the backend's secret key.
+
 Only put the **anon/publishable** key on the device. Never use the `service_role` / secret key there: it bypasses all security rules. With `schema.sql`'s policy, the anon key can only *insert* readings.
 
 ## Table: `readings`
