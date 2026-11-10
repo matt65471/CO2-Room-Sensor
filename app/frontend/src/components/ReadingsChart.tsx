@@ -10,7 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { Range, ReadingsResponse } from '../api';
-import { METRICS, formatValue, type Metric } from '../metrics';
+import { METRICS, formatDisplayed, toDisplay, unitLabel, type Metric, type TempUnit } from '../metrics';
 
 const MUTED = '#8a8f98';
 const GRID = 'rgba(138, 143, 152, 0.25)';
@@ -25,7 +25,8 @@ type ChartPoint = { time: number; ppm: number | null; tempC: number | null; rhPc
 
 // Insert a blank point wherever readings stop for a while (sensor offline), so the lines
 // show a gap instead of a misleading straight line across the missing period.
-function withGaps(data: ReadingsResponse): ChartPoint[] {
+// Temperature is converted to the chosen unit here, so axes and domains work in display units.
+function withGaps(data: ReadingsResponse, tempUnit: TempUnit): ChartPoint[] {
   const out: ChartPoint[] = [];
   const maxGapMs = data.bucketSecs * 1000 * 3;
   let prev: number | null = null;
@@ -34,7 +35,8 @@ function withGaps(data: ReadingsResponse): ChartPoint[] {
     if (prev !== null && time - prev > maxGapMs) {
       out.push({ time: prev + 1, ppm: null, tempC: null, rhPct: null });
     }
-    out.push({ time, ppm: p.ppm, tempC: p.tempC, rhPct: p.rhPct });
+    const tempC = p.tempC === null ? null : toDisplay('temp', p.tempC, tempUnit);
+    out.push({ time, ppm: p.ppm, tempC, rhPct: p.rhPct });
     prev = time;
   }
   return out;
@@ -53,6 +55,13 @@ function formatTick(time: number, range: Range): string {
 const safe = (f: (v: number) => number, fallback: number) => (v: number) =>
   Number.isFinite(v) ? f(v) : fallback;
 
+function domainFor(metric: Metric, tempUnit: TempUnit): [(v: number) => number, (v: number) => number] {
+  if (metric === 'temp' && tempUnit === 'F') {
+    return [safe((v) => Math.floor(v - 2), 59), safe((v) => Math.ceil(v + 2), 86)];
+  }
+  return DOMAINS[metric];
+}
+
 const DOMAINS: Record<Metric, [(v: number) => number, (v: number) => number]> = {
   co2: [safe((v) => Math.max(0, Math.floor((v - 50) / 100) * 100), 400), safe((v) => Math.ceil((v + 50) / 100) * 100, 1000)],
   temp: [safe((v) => Math.floor(v - 1), 15), safe((v) => Math.ceil(v + 1), 30)],
@@ -62,14 +71,15 @@ const DOMAINS: Record<Metric, [(v: number) => number, (v: number) => number]> = 
 interface Props {
   data: ReadingsResponse | null;
   metrics: Metric[];
+  tempUnit: TempUnit;
 }
 
-export default function ReadingsChart({ data, metrics }: Props) {
+export default function ReadingsChart({ data, metrics, tempUnit }: Props) {
   if (!data) {
     return <div className="chart-placeholder">Loading…</div>;
   }
 
-  const points = withGaps(data);
+  const points = withGaps(data, tempUnit);
   const hasData = points.some((p) => metrics.some((m) => p[METRICS[m].key] !== null));
   if (!hasData) {
     const names = metrics.map((m) => METRICS[m].label.toLowerCase()).join(' or ');
@@ -106,9 +116,9 @@ export default function ReadingsChart({ data, metrics }: Props) {
               key={m}
               yAxisId={m}
               orientation={i === 0 ? 'left' : 'right'}
-              domain={DOMAINS[m]}
+              domain={domainFor(m, tempUnit)}
               tick={{ fill: METRICS[m].color, fontSize: 12 }}
-              tickFormatter={(v: number) => `${v}${METRICS[m].unit === 'ppm' ? '' : METRICS[m].unit}`}
+              tickFormatter={(v: number) => `${v}${m === 'co2' ? '' : unitLabel(m, tempUnit)}`}
               stroke={GRID}
               width={i === 0 ? LEFT_AXIS_WIDTH : RIGHT_AXIS_WIDTH}
               allowDecimals={false}
@@ -129,7 +139,7 @@ export default function ReadingsChart({ data, metrics }: Props) {
             formatter={(value, _name, item) => {
               const metric = metrics.find((m) => METRICS[m].key === item.dataKey);
               return metric
-                ? [formatValue(metric, value === null ? null : Number(value)), METRICS[metric].label]
+                ? [formatDisplayed(metric, value === null ? null : Number(value), tempUnit), METRICS[metric].label]
                 : [String(value), String(_name)];
             }}
             contentStyle={{
@@ -152,7 +162,7 @@ export default function ReadingsChart({ data, metrics }: Props) {
               yAxisId={m}
               type="monotone"
               dataKey={METRICS[m].key}
-              name={`${METRICS[m].label} (${METRICS[m].unit})`}
+              name={`${METRICS[m].label} (${unitLabel(m, tempUnit)})`}
               stroke={METRICS[m].color}
               strokeWidth={2}
               dot={false}

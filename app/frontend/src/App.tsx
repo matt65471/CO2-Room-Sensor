@@ -13,11 +13,12 @@ import ReadingsChart from './components/ReadingsChart';
 import RangeTabs from './components/RangeTabs';
 import StatsTable from './components/StatsTable';
 import TrendCard from './components/TrendCard';
-import { isMetric, type Metric } from './metrics';
+import { isMetric, isTempUnit, type Metric, type TempUnit } from './metrics';
 
 const REFRESH_MS = 60_000;
 const DEVICE_KEY = 'co2.device';
 const METRICS_KEY = 'co2.graphMetrics';
+const TEMP_UNIT_KEY = 'co2.tempUnit';
 
 function load(key: string): string | null {
   try {
@@ -45,6 +46,11 @@ function loadSavedMetrics(): Metric[] {
   }
 }
 
+function loadSavedTempUnit(): TempUnit {
+  const saved = load(TEMP_UNIT_KEY);
+  return isTempUnit(saved) ? saved : 'C';
+}
+
 function deviceLabel(d: Device): string {
   const lastSeen = new Date(d.lastSeen).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   return `${d.deviceId.slice(0, 8)}… (last seen ${lastSeen})`;
@@ -55,6 +61,7 @@ export default function App() {
   const [device, setDevice] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('24h');
   const [graphMetrics, setGraphMetrics] = useState<Metric[]>(loadSavedMetrics);
+  const [tempUnit, setTempUnit] = useState<TempUnit>(loadSavedTempUnit);
   const [readings, setReadings] = useState<ReadingsResponse | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +116,11 @@ export default function App() {
     save(METRICS_KEY, JSON.stringify(metrics));
   }
 
+  function chooseTempUnit(unit: TempUnit) {
+    setTempUnit(unit);
+    save(TEMP_UNIT_KEY, unit);
+  }
+
   function chooseDevice(id: string) {
     setDevice(id);
     save(DEVICE_KEY, id);
@@ -120,18 +132,34 @@ export default function App() {
     <div className="page">
       <header className="header">
         <h1>CO₂ Room Monitor</h1>
-        {devices && devices.length > 0 && (
-          <label className="device-picker">
-            <span>Sensor</span>
-            <select value={device ?? ''} onChange={(e) => chooseDevice(e.target.value)}>
-              {devices.map((d) => (
-                <option key={d.deviceId} value={d.deviceId}>
-                  {deviceLabel(d)}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <div className="header-controls">
+          <div className="tabs" role="radiogroup" aria-label="Temperature unit">
+            {(['C', 'F'] as const).map((u) => (
+              <button
+                key={u}
+                type="button"
+                role="radio"
+                aria-checked={tempUnit === u}
+                className={tempUnit === u ? 'tab active' : 'tab'}
+                onClick={() => chooseTempUnit(u)}
+              >
+                °{u}
+              </button>
+            ))}
+          </div>
+          {devices && devices.length > 0 && (
+            <label className="device-picker">
+              <span>Sensor</span>
+              <select value={device ?? ''} onChange={(e) => chooseDevice(e.target.value)}>
+                {devices.map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {deviceLabel(d)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
       </header>
 
       {error && <div className="error">Couldn't load data: {error}</div>}
@@ -142,7 +170,7 @@ export default function App() {
 
       {device && (
         <>
-          <TrendCard summary={summary} />
+          <TrendCard summary={summary} tempUnit={tempUnit} />
 
           <section className="card">
             <div className="card-header">
@@ -153,10 +181,11 @@ export default function App() {
             <ReadingsChart
               data={readings && readings.range === range ? readings : null}
               metrics={graphMetrics}
+              tempUnit={tempUnit}
             />
           </section>
 
-          <StatsTable summary={summary} />
+          <StatsTable summary={summary} tempUnit={tempUnit} />
         </>
       )}
     </div>

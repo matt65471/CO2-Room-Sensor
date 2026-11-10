@@ -45,6 +45,8 @@ returns table (
   metric             text,
   mean_24h           numeric,
   median_24h         double precision,
+  low_24h            numeric,
+  low_at             timestamptz,
   high_24h           numeric,
   high_at            timestamptz,
   count_24h          bigint,
@@ -82,6 +84,7 @@ as $$
     select m.metric,
            round(avg(m.value), 2)                              as mean_24h,
            percentile_cont(0.5) within group (order by m.value) as median_24h,
+           min(m.value)                                        as low_24h,
            max(m.value)                                        as high_24h,
            count(*)                                            as count_24h
     from metrics m
@@ -102,6 +105,10 @@ as $$
   select names.metric,
          s.mean_24h,
          s.median_24h,
+         s.low_24h,
+         (select m.created_at from metrics m
+          where m.metric = names.metric
+          order by m.value asc, m.created_at desc limit 1),
          s.high_24h,
          (select m.created_at from metrics m
           where m.metric = names.metric

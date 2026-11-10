@@ -1,5 +1,5 @@
 import type { Summary, TrendDirection } from '../api';
-import { formatValue } from '../metrics';
+import { formatValue, type TempUnit } from '../metrics';
 
 const TREND: Record<TrendDirection, { arrow: string; label: string }> = {
   rising: { arrow: '↑', label: 'Rising' },
@@ -16,9 +16,10 @@ function airQuality(ppm: number): { label: string; level: 'good' | 'fair' | 'poo
 
 interface Props {
   summary: Summary | null;
+  tempUnit: TempUnit;
 }
 
-export default function TrendCard({ summary }: Props) {
+export default function TrendCard({ summary, tempUnit }: Props) {
   if (!summary) {
     return <section className="card trend">Loading…</section>;
   }
@@ -38,7 +39,7 @@ export default function TrendCard({ summary }: Props) {
         {quality && <span className={`badge ${quality.level}`}>{quality.label}</span>}
         {(summary.latestTempC !== null || summary.latestRhPct !== null) && (
           <span className="muted small latest-env">
-            {formatValue('temp', summary.latestTempC)} · {formatValue('humidity', summary.latestRhPct)} humidity
+            {formatValue('temp', summary.latestTempC, tempUnit)} · {formatValue('humidity', summary.latestRhPct, tempUnit)} humidity
           </span>
         )}
       </div>

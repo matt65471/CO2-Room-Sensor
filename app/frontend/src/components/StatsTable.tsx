@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import type { Summary } from '../api';
-import { METRICS, METRIC_ORDER, formatValue, type Metric } from '../metrics';
+import { METRICS, METRIC_ORDER, formatValue, type Metric, type TempUnit } from '../metrics';
 
 interface Props {
   summary: Summary | null;
+  tempUnit: TempUnit;
 }
 
-export default function StatsTable({ summary }: Props) {
+export default function StatsTable({ summary, tempUnit }: Props) {
   const [metric, setMetric] = useState<Metric>('co2');
   const s = summary?.last24h[metric];
-  const highAt = s?.highAt
-    ? new Date(s.highAt).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })
-    : null;
-  const value = (v: number | null | undefined) => (s ? formatValue(metric, v ?? null) : '…');
+  const when = (iso: string | null | undefined) =>
+    iso ? new Date(iso).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : null;
+  const lowAt = when(s?.lowAt);
+  const highAt = when(s?.highAt);
+  const value = (v: number | null | undefined) => (s ? formatValue(metric, v ?? null, tempUnit) : '…');
 
   return (
     <section className="card">
@@ -48,6 +50,13 @@ export default function StatsTable({ summary }: Props) {
             <tr>
               <th scope="row">Median</th>
               <td>{value(s?.median)}</td>
+            </tr>
+            <tr>
+              <th scope="row">Low</th>
+              <td>
+                {value(s?.low)}
+                {lowAt && <span className="muted"> at {lowAt}</span>}
+              </td>
             </tr>
             <tr>
               <th scope="row">High</th>

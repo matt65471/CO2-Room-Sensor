@@ -28,6 +28,8 @@ export interface ReadingsResponse {
 export interface MetricStats {
   mean: number | null;
   median: number | null;
+  low: number | null;
+  lowAt: string | null;
   high: number | null;
   highAt: string | null;
   count: number;

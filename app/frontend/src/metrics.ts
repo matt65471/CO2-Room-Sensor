@@ -23,9 +23,31 @@ export function isMetric(value: unknown): value is Metric {
   return typeof value === 'string' && value in METRICS;
 }
 
-export function formatValue(metric: Metric, value: number | null): string {
+// Temperature is stored in °C; the viewer can choose to see it in °F instead
+export type TempUnit = 'C' | 'F';
+
+export function isTempUnit(value: unknown): value is TempUnit {
+  return value === 'C' || value === 'F';
+}
+
+// Convert a stored value into the unit it is displayed in
+export function toDisplay(metric: Metric, value: number, tempUnit: TempUnit): number {
+  return metric === 'temp' && tempUnit === 'F' ? (value * 9) / 5 + 32 : value;
+}
+
+export function unitLabel(metric: Metric, tempUnit: TempUnit): string {
+  return metric === 'temp' ? `°${tempUnit}` : METRICS[metric].unit;
+}
+
+// Format a value that is already in display units (e.g. chart points)
+export function formatDisplayed(metric: Metric, value: number | null, tempUnit: TempUnit): string {
   if (value === null) return '—';
-  const { unit, decimals } = METRICS[metric];
+  const unit = unitLabel(metric, tempUnit);
   const separator = unit === 'ppm' ? ' ' : '';
-  return `${value.toFixed(decimals)}${separator}${unit}`;
+  return `${value.toFixed(METRICS[metric].decimals)}${separator}${unit}`;
+}
+
+// Format a stored value (temperature in °C) in the chosen unit
+export function formatValue(metric: Metric, value: number | null, tempUnit: TempUnit): string {
+  return formatDisplayed(metric, value === null ? null : toDisplay(metric, value, tempUnit), tempUnit);
 }

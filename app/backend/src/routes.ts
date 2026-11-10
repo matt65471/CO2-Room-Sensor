@@ -95,6 +95,8 @@ router.get('/summary', async (req, res) => {
     return {
       mean: num(row.mean_24h),
       median: num(row.median_24h),
+      low: num(row.low_24h),
+      lowAt: (row.low_at as string | null) ?? null,
       high: num(row.high_24h),
       highAt: (row.high_at as string | null) ?? null,
       count: Number(row.count_24h ?? 0),
