@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { supabase } from './supabase.js';
 import { classifyTrend } from './trend.js';
+import { pickBucketSecs } from './buckets.js';
 
 // How far back each graph range goes, and how wide each averaged point is
 const RANGES = {
@@ -13,6 +14,10 @@ const RANGES = {
 const deviceId = z.string().uuid();
 const readingsQuery = z.object({ device: deviceId, range: z.enum(['1h', '24h', '3d']) });
 const summaryQuery = z.object({ device: deviceId });
+const windowQuery = z
+  .object({ device: deviceId, from: z.iso.datetime({ offset: true }), to: z.iso.datetime({ offset: true }) })
+  .refine((q) => Date.parse(q.from) < Date.parse(q.to));
+const WINDOW_HELP = 'Expected ?device=<uuid>&from=<ISO time>&to=<ISO time>, with from before to';
 
 // Postgres numeric/bigint values can arrive as strings; null means "no data"
 function num(value: unknown): number | null {
@@ -119,4 +124,71 @@ router.get('/summary', async (req, res) => {
     latestTempC: num(first.latest_temp_c),
     latestRhPct: num(first.latest_rh_pct),
   });
+});
+
+// Data Analysis tab: graph points for any chosen window, bucketed to a few hundred points
+router.get('/history/readings', async (req, res) => {
+  const parsed = windowQuery.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: WINDOW_HELP });
+    return;
+  }
+  const { device } = parsed.data;
+  const from = new Date(parsed.data.from).toISOString();
+  const to = new Date(parsed.data.to).toISOString();
+  const bucketSecs = pickBucketSecs((Date.parse(to) - Date.parse(from)) / 1000);
+
+  const { data, error } = await supabase.rpc('get_readings_between', {
+    p_device: device,
+    p_from: from,
+    p_to: to,
+    p_bucket_secs: bucketSecs,
+  });
+  if (error) {
+    dbError(res, error);
+    return;
+  }
+  res.json({
+    from,
+    to,
+    bucketSecs,
+    points: (data as { t: string; ppm: unknown; temp_c: unknown; rh_pct: unknown }[]).map((p) => ({
+      t: p.t,
+      ppm: num(p.ppm),
+      tempC: num(p.temp_c),
+      rhPct: num(p.rh_pct),
+    })),
+  });
+});
+
+// Data Analysis tab: mean / median / low / high per measurement over the chosen window
+router.get('/history/stats', async (req, res) => {
+  const parsed = windowQuery.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: WINDOW_HELP });
+    return;
+  }
+  const { device } = parsed.data;
+  const from = new Date(parsed.data.from).toISOString();
+  const to = new Date(parsed.data.to).toISOString();
+
+  const { data, error } = await supabase.rpc('get_stats_between', { p_device: device, p_from: from, p_to: to });
+  if (error) {
+    dbError(res, error);
+    return;
+  }
+  const rows = data as Record<string, unknown>[];
+  const stats = (metric: string) => {
+    const row = rows.find((r) => r.metric === metric) ?? {};
+    return {
+      mean: num(row.mean),
+      median: num(row.median),
+      low: num(row.low),
+      lowAt: (row.low_at as string | null) ?? null,
+      high: num(row.high),
+      highAt: (row.high_at as string | null) ?? null,
+      count: Number(row.readings ?? 0),
+    };
+  };
+  res.json({ from, to, co2: stats('co2'), temp: stats('temp'), humidity: stats('humidity') });
 });

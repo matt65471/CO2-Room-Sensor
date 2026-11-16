@@ -9,7 +9,7 @@
 5. Run `idf.py build flash monitor`. Every reading should log `Stored reading: … ppm`, and rows should appear under **Table Editor → readings**.
 
 6. For the dashboard app, also run **`app_queries.sql`** in the SQL Editor. It adds a `devices` view and the
-   `get_readings` / `get_summary` functions, readable only with the backend's secret key.
+   `get_readings` / `get_summary` / `get_readings_between` / `get_stats_between` functions, readable only with the backend's secret key.
 
 Only put the **anon/publishable** key on the device. Never use the `service_role` / secret key there: it bypasses all security rules. With `schema.sql`'s policy, the anon key can only *insert* readings.
 

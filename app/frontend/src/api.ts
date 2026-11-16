@@ -70,3 +70,24 @@ export const fetchReadings = (device: string, range: Range) =>
 
 export const fetchSummary = (device: string) =>
   getJson<Summary>(`/api/summary?device=${encodeURIComponent(device)}`);
+
+// Data Analysis tab: any chosen window
+export interface HistoryReadings {
+  from: string;
+  to: string;
+  bucketSecs: number;
+  points: Point[];
+}
+
+export type HistoryStats = { from: string; to: string } & Record<Metric, MetricStats>;
+
+function windowParams(device: string, from: Date, to: Date): string {
+  const q = new URLSearchParams({ device, from: from.toISOString(), to: to.toISOString() });
+  return q.toString();
+}
+
+export const fetchHistoryReadings = (device: string, from: Date, to: Date) =>
+  getJson<HistoryReadings>(`/api/history/readings?${windowParams(device, from, to)}`);
+
+export const fetchHistoryStats = (device: string, from: Date, to: Date) =>
+  getJson<HistoryStats>(`/api/history/stats?${windowParams(device, from, to)}`);

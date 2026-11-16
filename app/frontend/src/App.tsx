@@ -1,49 +1,23 @@
 import { useEffect, useState } from 'react';
-import {
-  fetchDevices,
-  fetchReadings,
-  fetchSummary,
-  type Device,
-  type Range,
-  type ReadingsResponse,
-  type Summary,
-} from './api';
-import MetricToggle from './components/MetricToggle';
-import ReadingsChart from './components/ReadingsChart';
-import RangeTabs from './components/RangeTabs';
-import StatsTable from './components/StatsTable';
-import TrendCard from './components/TrendCard';
-import { isMetric, isTempUnit, type Metric, type TempUnit } from './metrics';
+import { fetchDevices, type Device } from './api';
+import AnalysisDashboard from './AnalysisDashboard';
+import ConsumerDashboard from './ConsumerDashboard';
+import { isTempUnit, type TempUnit } from './metrics';
+import { load, save } from './storage';
 
 const REFRESH_MS = 60_000;
 const DEVICE_KEY = 'co2.device';
-const METRICS_KEY = 'co2.graphMetrics';
 const TEMP_UNIT_KEY = 'co2.tempUnit';
 
-function load(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
+type View = 'consumer' | 'analysis';
+const VIEWS: { value: View; label: string; hash: string }[] = [
+  { value: 'consumer', label: 'Consumer Dashboard', hash: '' },
+  { value: 'analysis', label: 'Data Analysis', hash: '#analysis' },
+];
 
-function save(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Storage blocked (e.g. private mode); the choice just won't be remembered
-  }
-}
-
-function loadSavedMetrics(): Metric[] {
-  try {
-    const saved = JSON.parse(load(METRICS_KEY) ?? '[]');
-    const valid = Array.isArray(saved) ? saved.filter(isMetric) : [];
-    return valid.length > 0 ? valid : ['co2'];
-  } catch {
-    return ['co2'];
-  }
+// The open tab lives in the URL (#analysis), so it survives reloads and can be bookmarked
+function viewFromHash(): View {
+  return window.location.hash === '#analysis' ? 'analysis' : 'consumer';
 }
 
 function loadSavedTempUnit(): TempUnit {
@@ -57,20 +31,24 @@ function deviceLabel(d: Device): string {
 }
 
 export default function App() {
+  const [view, setView] = useState<View>(viewFromHash);
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [device, setDevice] = useState<string | null>(null);
-  const [range, setRange] = useState<Range>('24h');
-  const [graphMetrics, setGraphMetrics] = useState<Metric[]>(loadSavedMetrics);
   const [tempUnit, setTempUnit] = useState<TempUnit>(loadSavedTempUnit);
-  const [readings, setReadings] = useState<ReadingsResponse | null>(null);
-  const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
-  // Re-fetch everything every minute
+  // Re-fetch live data every minute
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), REFRESH_MS);
     return () => clearInterval(id);
+  }, []);
+
+  // Follow back/forward navigation between tabs
+  useEffect(() => {
+    const onHash = () => setView(viewFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
   // Device list; keep the current choice, else the saved one, else the most recently seen device
@@ -89,31 +67,11 @@ export default function App() {
       .catch((e: Error) => setError(e.message));
   }, [tick]);
 
-  useEffect(() => {
-    if (!device) return;
-    let cancelled = false;
-    fetchReadings(device, range)
-      .then((r) => !cancelled && (setReadings(r), setError(null)))
-      .catch((e: Error) => !cancelled && setError(e.message));
-    return () => {
-      cancelled = true;
-    };
-  }, [device, range, tick]);
-
-  useEffect(() => {
-    if (!device) return;
-    let cancelled = false;
-    fetchSummary(device)
-      .then((s) => !cancelled && setSummary(s))
-      .catch((e: Error) => !cancelled && setError(e.message));
-    return () => {
-      cancelled = true;
-    };
-  }, [device, tick]);
-
-  function chooseMetrics(metrics: Metric[]) {
-    setGraphMetrics(metrics);
-    save(METRICS_KEY, JSON.stringify(metrics));
+  function chooseView(next: View) {
+    setView(next);
+    setError(null);
+    const hash = VIEWS.find((v) => v.value === next)!.hash;
+    history.pushState(null, '', hash || window.location.pathname + window.location.search);
   }
 
   function chooseTempUnit(unit: TempUnit) {
@@ -124,12 +82,10 @@ export default function App() {
   function chooseDevice(id: string) {
     setDevice(id);
     save(DEVICE_KEY, id);
-    setReadings(null);
-    setSummary(null);
   }
 
   return (
-    <div className="page">
+    <div className={view === 'analysis' ? 'page wide' : 'page'}>
       <header className="header">
         <h1>CO₂ Room Monitor</h1>
         <div className="header-controls">
@@ -162,32 +118,31 @@ export default function App() {
         </div>
       </header>
 
+      <nav className="view-tabs" role="tablist" aria-label="Dashboard">
+        {VIEWS.map((v) => (
+          <button
+            key={v.value}
+            type="button"
+            role="tab"
+            aria-selected={view === v.value}
+            className={view === v.value ? 'view-tab active' : 'view-tab'}
+            onClick={() => chooseView(v.value)}
+          >
+            {v.label}
+          </button>
+        ))}
+      </nav>
+
       {error && <div className="error">Couldn't load data: {error}</div>}
 
-      {devices && devices.length === 0 && (
-        <div className="card empty">No sensors have sent readings yet.</div>
-      )}
+      {devices && devices.length === 0 && <div className="card empty">No sensors have sent readings yet.</div>}
 
-      {device && (
-        <>
-          <TrendCard summary={summary} tempUnit={tempUnit} />
-
-          <section className="card">
-            <div className="card-header">
-              <h2>Readings</h2>
-              <RangeTabs value={range} onChange={setRange} />
-            </div>
-            <MetricToggle selected={graphMetrics} onChange={chooseMetrics} />
-            <ReadingsChart
-              data={readings && readings.range === range ? readings : null}
-              metrics={graphMetrics}
-              tempUnit={tempUnit}
-            />
-          </section>
-
-          <StatsTable summary={summary} tempUnit={tempUnit} />
-        </>
-      )}
+      {device &&
+        (view === 'consumer' ? (
+          <ConsumerDashboard device={device} tempUnit={tempUnit} tick={tick} onError={setError} />
+        ) : (
+          <AnalysisDashboard device={device} tempUnit={tempUnit} />
+        ))}
     </div>
   );
 }

@@ -125,6 +125,86 @@ as $$
   cross join trend;
 $$;
 
+-- ---------------------------------------------------------------------------------------------
+-- Data Analysis tab: the same graph and statistics, for any chosen window [p_from, p_to).
+-- ---------------------------------------------------------------------------------------------
+drop function if exists get_readings_between(uuid, timestamptz, timestamptz, int);
+drop function if exists get_stats_between(uuid, timestamptz, timestamptz);
+
+create function get_readings_between(p_device uuid, p_from timestamptz, p_to timestamptz, p_bucket_secs int)
+returns table (t timestamptz, ppm numeric, temp_c numeric, rh_pct numeric)
+language sql
+stable
+set search_path = public
+as $$
+  select date_bin(make_interval(secs => p_bucket_secs), r.created_at, p_from) as t,
+         round(avg(r.ppm), 1)    as ppm,
+         round(avg(r.temp_c), 2) as temp_c,
+         round(avg(r.rh_pct), 2) as rh_pct
+  from readings r
+  where r.device_id = p_device
+    and r.created_at >= p_from
+    and r.created_at < p_to
+  group by 1
+  order by 1;
+$$;
+
+-- Statistics over the window, one row per metric ('co2', 'temp', 'humidity')
+create function get_stats_between(p_device uuid, p_from timestamptz, p_to timestamptz)
+returns table (
+  metric   text,
+  mean     numeric,
+  median   double precision,
+  low      numeric,
+  low_at   timestamptz,
+  high     numeric,
+  high_at  timestamptz,
+  readings bigint
+)
+language sql
+stable
+set search_path = public
+as $$
+  with win as (
+    select created_at, ppm::numeric as ppm, temp_c, rh_pct
+    from readings
+    where device_id = p_device
+      and created_at >= p_from
+      and created_at < p_to
+  ),
+  metrics as (
+    select 'co2' as metric, ppm as value, created_at from win
+    union all
+    select 'temp', temp_c, created_at from win where temp_c is not null
+    union all
+    select 'humidity', rh_pct, created_at from win where rh_pct is not null
+  ),
+  stats as (
+    select m.metric,
+           round(avg(m.value), 2)                              as mean,
+           percentile_cont(0.5) within group (order by m.value) as median,
+           min(m.value)                                        as low,
+           max(m.value)                                        as high,
+           count(*)                                            as n
+    from metrics m
+    group by m.metric
+  )
+  select names.metric,
+         s.mean,
+         s.median,
+         s.low,
+         (select m.created_at from metrics m
+          where m.metric = names.metric
+          order by m.value asc, m.created_at desc limit 1),
+         s.high,
+         (select m.created_at from metrics m
+          where m.metric = names.metric
+          order by m.value desc, m.created_at desc limit 1),
+         coalesce(s.n, 0)
+  from (values ('co2'), ('temp'), ('humidity')) as names(metric)
+  left join stats s on s.metric = names.metric;
+$$;
+
 -- Only the backend's secret key may read. Supabase usually grants table access automatically,
 -- but newer projects may not, so be explicit.
 grant select on table readings to service_role;
@@ -135,3 +215,8 @@ revoke execute on function get_readings(uuid, timestamptz, int) from public, ano
 revoke execute on function get_summary(uuid) from public, anon, authenticated;
 grant execute on function get_readings(uuid, timestamptz, int) to service_role;
 grant execute on function get_summary(uuid) to service_role;
+
+revoke execute on function get_readings_between(uuid, timestamptz, timestamptz, int) from public, anon, authenticated;
+revoke execute on function get_stats_between(uuid, timestamptz, timestamptz) from public, anon, authenticated;
+grant execute on function get_readings_between(uuid, timestamptz, timestamptz, int) to service_role;
+grant execute on function get_stats_between(uuid, timestamptz, timestamptz) to service_role;
