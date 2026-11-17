@@ -11,12 +11,13 @@ import { CO2_THRESHOLDS, withGaps } from './components/chartUtils';
 import GestChart, { GEST_COLOR } from './components/GestChart';
 import MetricChart, { type Band } from './components/MetricChart';
 import MetricStatsTable from './components/MetricStatsTable';
-import { DecayLegend, DecayTable, RoomModelSummary, VERDICTS } from './components/RoomModel';
+import { DecayLegend, DecayTable, OccupancyLegend, RoomModelSummary, VERDICTS } from './components/RoomModel';
 import TimeWindowPicker, { lastWindow, type TimeWindow } from './components/TimeWindowPicker';
 import { METRICS, METRIC_ORDER, unitLabel, type TempUnit } from './metrics';
 import { load, save } from './storage';
 
 const SHOW_DECAYS_KEY = 'co2.showDecays';
+const SHOW_LABELS_KEY = 'co2.showLabels';
 
 function describeBucket(secs: number): string {
   if (secs < 3600) return `${secs / 60} min`;
@@ -37,6 +38,7 @@ export default function AnalysisDashboard({ device, tempUnit }: Props) {
   const [stats, setStats] = useState<HistoryStats | null>(null);
   const [model, setModel] = useState<RoomModel | null>(null);
   const [showDecays, setShowDecays] = useState(() => load(SHOW_DECAYS_KEY) !== 'false');
+  const [showLabels, setShowLabels] = useState(() => load(SHOW_LABELS_KEY) !== 'false');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,6 +76,11 @@ export default function AnalysisDashboard({ device, tempUnit }: Props) {
   function chooseShowDecays(show: boolean) {
     setShowDecays(show);
     save(SHOW_DECAYS_KEY, String(show));
+  }
+
+  function chooseShowLabels(show: boolean) {
+    setShowLabels(show);
+    save(SHOW_LABELS_KEY, String(show));
   }
 
   const start = span.from.getTime();
@@ -135,11 +142,18 @@ export default function AnalysisDashboard({ device, tempUnit }: Props) {
             <span className="muted small">
               G<sub>est</sub> = dC/dt + λ·(C − C<sub>out</sub>) · ≈ 0 means the room is empty
             </span>
+            {showLabels && <OccupancyLegend model={model?.occupancy.model ?? null} />}
           </div>
-          <GestChart model={model} start={start} end={end} syncId="analysis" />
+          <GestChart model={model} start={start} end={end} syncId="analysis" showLabels={showLabels} />
         </div>
         <div className="analysis-stats">
-          <RoomModelSummary model={model} showDecays={showDecays} onShowDecays={chooseShowDecays} />
+          <RoomModelSummary
+            model={model}
+            showDecays={showDecays}
+            onShowDecays={chooseShowDecays}
+            showLabels={showLabels}
+            onShowLabels={chooseShowLabels}
+          />
         </div>
       </section>
 

@@ -160,9 +160,17 @@ curve heads to 481 ppm, so the room was empty until someone came back.
 This also points to a later use: a fall whose curve was heading to baseline but which ended well above it
 means **someone re-entered** at the moment it ended. The dashboard doesn't flag that yet.
 
-The estimate always looks back at least 7 days, since one day usually has only one or two empty periods.
+The estimate always uses at least 7 days of data, since one day usually has only one or two empty periods.
+For a shorter window, those 7 days are **centred on the window** (e.g. Nov 10–11 learns from about Nov 7–14),
+so the model learns from the days closest to it on both sides. When the days after the window don't exist
+yet, such as for "Last 24 h", it falls back to the 7 days ending at the window's end. Windows of 7–60 days
+are used as they are, and longer ones are capped to their last 60 days. The same data is used for λ and for
+the `G_est` labels below.
 The Data Analysis tab shows λ, how long the excess CO₂ takes to halve (`ln 2 / λ`), the baseline, and
 every fall considered. Falls are shaded on the CO₂ chart by verdict.
+
+On this room's first week of data: `C_out` ≈ 436 ppm and λ ≈ 1.0 per hour (12 empty-room decays). That's
+about one full air change per hour, so the excess CO₂ halves roughly every 42 minutes once the room is empty.
 
 ### G_est on the dashboard
 
@@ -184,8 +192,52 @@ On this room's first week, by time of day:
 similar by `G_est` alone. The planned classifier will also use how steady `G_est` is, the time of night,
 and temperature and humidity, not just its size.
 
-On this room's first week of data: `C_out` ≈ 436 ppm and λ ≈ 1.0 per hour (12 empty-room decays). That's
-about one full air change per hour, so the excess CO₂ halves roughly every 42 minutes once the room is empty.
+
+### TODO: live mode
+
+Not built yet. The goal is to show, on the Consumer Dashboard, whether someone is in the room *right now*.
+
+**How it would work.** Every minute (the sensor uploads once a minute and the Consumer Dashboard already
+refreshes once a minute):
+
+1. Take the **last 15 minutes of raw 1-minute readings**. Don't use 5-minute blocks: the newest block is
+   always partly filled, and the 1-minute readings give the slope more points.
+2. Fit a straight line through them. Its slope is `dC/dt`, and their mean is `C`.
+3. `G_est = dC/dt + λ·(C − C_out)`, using the λ and `C_out` already learned from the past week.
+4. Show `G_est` and a label: **Room empty** if it is below about 150 ppm/h, otherwise **Someone in the room**.
+
+**What to expect:**
+- **Lag:** a line through the last 15 minutes describes the middle of that window, so the estimate is
+  about **7 minutes behind**. If someone leaves at 10:00, it should read "empty" by about 10:10–10:15.
+  Any slope needs a few minutes of readings, so this lag can't be removed entirely.
+- **Noise:** with 15 readings of about ±8.5 ppm each, `G_est` should be good to about ±30 ppm/h. That is
+  small next to the gaps between states in this room: about 0 when empty, about 440 asleep, and
+  about 670 awake.
+- **λ doesn't need to be live.** It barely changes, so recompute it at most once an hour and cache it.
+  The "empty-room fall" verdicts it comes from only work in hindsight anyway.
+
+**Pieces to build:**
+- **Backend.** A `GET /api/live?device=` endpoint in `app/backend/src/routes.ts` that:
+  - fetches the last 15 minutes of readings;
+  - gets λ and `C_out` from `estimateLambda` (`app/backend/src/lambda.ts`), cached per device for an hour;
+  - returns the latest CO₂, `G_est`, the number of readings used, and the label.
+- **Calculation.** A backward-only version of `computeGest` in `app/backend/src/gest.ts`. It can reuse
+  the existing least-squares slope (`slopeAndMean`).
+- **Frontend.** Show `G_est` and the label in the Consumer Dashboard's top card
+  (`app/frontend/src/components/TrendCard.tsx`), fetched on the existing one-minute refresh.
+- **Tests.** Simulated data like `gest.test.ts`: after someone arrives or leaves, the label should flip
+  within about 15 minutes.
+
+**Edge cases:**
+- **Too few recent readings** (fewer than about 10 in the last 15 minutes, e.g. the sensor was offline):
+  show "No recent data" rather than a guess.
+- **No λ yet** (no clean empty-room fall in the past week): hide the live estimate and say why.
+
+**Later:** telling *asleep* from *awake* needs more than one number. It would use how steady `G_est` has
+been over the past hour or more, the time of night, and temperature and humidity. That belongs in the
+classifier, with the dashed event lines on the charts.
+
+### Assumptions
 
 The model assumes evenly mixed air, a steady λ (doors and windows change it), a steady `C_out`, and no
 other CO₂ sources such as a gas stove or a candle.

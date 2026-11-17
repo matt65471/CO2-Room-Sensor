@@ -1,7 +1,23 @@
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceArea,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import type { RoomModel } from '../api';
 import { GRID, MUTED, tooltipStyle } from './chartUtils';
 import { formatWindowTick } from './MetricChart';
+import { EVENTS, OCCUPANCY } from './RoomModel';
+
+// Event lines get a text label only when there's room for it: on windows up to 3 days, and only
+// if the previous labelled line is at least 6% of the chart's width away (the line itself always shows)
+const LABEL_EVENTS_MAX_SPAN_MS = 3 * 24 * 3600 * 1000;
+const MIN_LABEL_GAP_SHARE = 0.06;
 
 export const GEST_COLOR = '#d6409f';
 
@@ -32,10 +48,11 @@ interface Props {
   start: number;
   end: number;
   syncId?: string;
+  showLabels?: boolean; // shade empty / active / asleep and draw the events between them
 }
 
 // G_est over time: how fast the people in the room are pushing CO2 up. ≈ 0 means the room is empty.
-export default function GestChart({ model, start, end, syncId }: Props) {
+export default function GestChart({ model, start, end, syncId, showLabels = false }: Props) {
   if (!model) {
     return <div className="chart-box chart-placeholder">Loading…</div>;
   }
@@ -47,6 +64,19 @@ export default function GestChart({ model, start, end, syncId }: Props) {
     );
   }
   const points = withGaps(model);
+  const segments = showLabels ? model.occupancy.segments.filter((s) => s.label !== 'unknown') : [];
+  const events = showLabels ? model.occupancy.events : [];
+  const labelled = new Set<string>();
+  if (end - start <= LABEL_EVENTS_MAX_SPAN_MS) {
+    let last = -Infinity;
+    for (const e of events) {
+      const t = Date.parse(e.t);
+      if (t - last >= (end - start) * MIN_LABEL_GAP_SHARE) {
+        labelled.add(e.t);
+        last = t;
+      }
+    }
+  }
   if (!points.some((p) => p.g !== null)) {
     return <div className="chart-box chart-placeholder">No CO₂ readings in this window.</div>;
   }
@@ -56,6 +86,37 @@ export default function GestChart({ model, start, end, syncId }: Props) {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points} syncId={syncId} syncMethod="value" margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
+          {segments.map((s) => (
+            <ReferenceArea
+              key={s.start}
+              x1={Math.max(Date.parse(s.start), start)}
+              x2={Math.min(Date.parse(s.end), end)}
+              fill={OCCUPANCY[s.label].color}
+              fillOpacity={0.16}
+              stroke="none"
+              ifOverflow="hidden"
+            />
+          ))}
+          {events.map((e) => (
+            <ReferenceLine
+              key={e.t}
+              x={Date.parse(e.t)}
+              stroke={OCCUPANCY[EVENTS[e.type].to].color}
+              strokeDasharray="4 3"
+              strokeWidth={1.5}
+              ifOverflow="hidden"
+              label={
+                labelled.has(e.t)
+                  ? {
+                      value: EVENTS[e.type].label,
+                      position: 'insideTopLeft',
+                      fill: OCCUPANCY[EVENTS[e.type].to].color,
+                      fontSize: 10,
+                    }
+                  : undefined
+              }
+            />
+          ))}
           <XAxis
             dataKey="time"
             type="number"

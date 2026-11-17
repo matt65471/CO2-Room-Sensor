@@ -5,6 +5,7 @@ import { classifyTrend } from './trend.js';
 import { pickBucketSecs } from './buckets.js';
 import { estimateLambda, type SeriesPoint } from './lambda.js';
 import { bucketGest, computeGest } from './gest.js';
+import { labelOccupancy, learnOccupancy } from './occupancy.js';
 
 // How far back each graph range goes, and how wide each averaged point is
 const RANGES = {
@@ -196,8 +197,8 @@ router.get('/history/stats', async (req, res) => {
 });
 
 // Room model for the Data Analysis tab:
-//  - λ (room air-change rate), learned from how CO2 decays while the room is empty. Looks back at least
-//    ROOM_MIN_LOOKBACK, since one day rarely has enough empty periods, and at most ROOM_MAX_LOOKBACK.
+//  - λ (room air-change rate), learned from how CO2 decays while the room is empty. Learns from at least
+//    ROOM_MIN_LOOKBACK of data, since one day rarely has enough empty periods, and at most ROOM_MAX_LOOKBACK.
 //  - G_est over the chosen window: how fast the people in the room are pushing CO2 up, using that λ.
 const ROOM_BUCKET_SECS = 5 * 60;
 const ROOM_MIN_LOOKBACK_MS = 7 * 24 * 3600 * 1000;
@@ -240,13 +241,23 @@ router.get('/history/room-model', async (req, res) => {
   const windowFrom = Date.parse(parsed.data.from);
   const to = Date.parse(parsed.data.to);
 
-  // Reach back to at least ROOM_MIN_LOOKBACK before `to`, in whole buckets so the 5-minute grid lines
-  // up with the graph's points (binned from the window start). Never more than ROOM_MAX_LOOKBACK.
+  // The data the room model learns from ("lookback"), at least ROOM_MIN_LOOKBACK long:
+  //  - a window shorter than that is padded equally before and after (centred), so the model learns from
+  //    the days closest to it on both sides;
+  //  - if the padding after the window would run past now (no data yet), fall back to ending at the window's
+  //    end and reaching further back instead;
+  //  - a longer window is used as is, capped to its last ROOM_MAX_LOOKBACK.
+  // Padding is in whole buckets so the 5-minute grid lines up with the graph's points (binned from the window start).
   const bucketMs = ROOM_BUCKET_SECS * 1000;
   const extraMs = Math.max(0, ROOM_MIN_LOOKBACK_MS - (to - windowFrom));
-  const from = Math.max(windowFrom - Math.ceil(extraMs / bucketMs) * bucketMs, to - ROOM_MAX_LOOKBACK_MS);
+  const halfPadMs = Math.ceil(extraMs / 2 / bucketMs) * bucketMs;
+  const centred = extraMs > 0 && to + halfPadMs <= Date.now();
+  const from = centred
+    ? windowFrom - halfPadMs
+    : Math.max(windowFrom - Math.ceil(extraMs / bucketMs) * bucketMs, to - ROOM_MAX_LOOKBACK_MS);
+  const lookbackEnd = centred ? to + halfPadMs : to;
 
-  const result = await fetchCo2Series(device, from, to);
+  const result = await fetchCo2Series(device, from, lookbackEnd);
   if ('error' in result) {
     dbError(res, result.error);
     return;
@@ -254,25 +265,36 @@ router.get('/history/room-model', async (req, res) => {
   const { points } = result;
   const est = estimateLambda(points);
 
-  // G_est over the window (plus 10 minutes either side so the slope fit has data at the edges),
-  // averaged to the same point width as the graph
-  const graphBucketMs = Math.max(pickBucketSecs((to - windowFrom) / 1000) * 1000, bucketMs);
-  const gest =
+  // 5-minute G_est over the whole lookback: the occupancy labels learn their thresholds from all of it
+  const gest5 =
     est.lambdaPerHour === null || est.baselinePpm === null
       ? []
-      : bucketGest(
-          computeGest(
-            points.filter((p) => p.t >= windowFrom - 10 * 60_000),
-            est.lambdaPerHour,
-            est.baselinePpm,
-          ),
-          windowFrom,
-          graphBucketMs,
-        );
+      : computeGest(points, est.lambdaPerHour, est.baselinePpm);
+
+  // For the graph: the window only, averaged to the same point width as the other charts
+  const graphBucketMs = Math.max(pickBucketSecs((to - windowFrom) / 1000) * 1000, bucketMs);
+  const gest = bucketGest(
+    gest5.filter((p) => p.t < to),
+    windowFrom,
+    graphBucketMs,
+  );
+
+  // Empty / active / asleep for each chunk in the window. Label from an hour before it so the
+  // smoothing has context at the left edge, then clip to the window.
+  const occupancyModel = learnOccupancy(gest5, est.decays);
+  const labelled = labelOccupancy(
+    gest5.filter((p) => p.t >= windowFrom - 60 * 60_000),
+    occupancyModel,
+  );
+  const segments = labelled.segments
+    .filter((seg) => seg.end > windowFrom && seg.start < to)
+    .map((seg) => ({ ...seg, start: Math.max(seg.start, windowFrom), end: Math.min(seg.end, to) }));
+  const events = labelled.events.filter((e) => e.t >= windowFrom && e.t <= to);
 
   res.json({
     from: new Date(from).toISOString(),
-    to: new Date(to).toISOString(),
+    to: new Date(lookbackEnd).toISOString(),
+    centred,
     baselinePpm: est.baselinePpm,
     lambdaPerHour: est.lambdaPerHour,
     halfLifeHours: est.halfLifeHours,
@@ -285,6 +307,27 @@ router.get('/history/room-model', async (req, res) => {
     gest: {
       bucketSecs: graphBucketMs / 1000,
       points: gest.map((p) => ({ t: new Date(p.t).toISOString(), g: p.g === null ? null : Math.round(p.g) })),
+    },
+    occupancy: {
+      model: {
+        emptyBelow: Math.round(occupancyModel.emptyBelow),
+        emptyLearned: occupancyModel.emptyLearned,
+        asleep: occupancyModel.asleep && {
+          level: Math.round(occupancyModel.asleep.level),
+          steadiness: Math.round(occupancyModel.asleep.steadiness),
+        },
+        active: occupancyModel.active && {
+          level: Math.round(occupancyModel.active.level),
+          steadiness: Math.round(occupancyModel.active.steadiness),
+        },
+        notes: occupancyModel.notes,
+      },
+      segments: segments.map((seg) => ({
+        start: new Date(seg.start).toISOString(),
+        end: new Date(seg.end).toISOString(),
+        label: seg.label,
+      })),
+      events: events.map((e) => ({ t: new Date(e.t).toISOString(), type: e.type })),
     },
   });
 });

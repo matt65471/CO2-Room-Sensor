@@ -107,9 +107,28 @@ export interface Decay {
   verdict: DecayVerdict;
 }
 
+// Empty / active / asleep labels for G_est, with thresholds learned from the data (backend src/occupancy.ts)
+export type OccupancyLabel = 'empty' | 'active' | 'asleep' | 'unknown';
+export type OccupancyEventType = 'arrived' | 'left' | 'fell-asleep' | 'woke-up';
+
+export interface Occupancy {
+  model: {
+    emptyBelow: number; // ppm/h
+    emptyLearned: boolean;
+    asleep: { level: number; steadiness: number } | null; // null: not enough data to learn sleep
+    active: { level: number; steadiness: number } | null;
+    notes: string[];
+  };
+  segments: { start: string; end: string; label: OccupancyLabel }[];
+  events: { t: string; type: OccupancyEventType }[];
+}
+
 export interface RoomModel {
-  from: string; // λ looks back at least 7 days, so this can be before the chosen window
+  // The data the room model learned from: at least 7 days, centred on the chosen window when the days
+  // after it exist, otherwise the 7 days ending at the window's end
+  from: string;
   to: string;
+  centred: boolean;
   baselinePpm: number | null;
   lambdaPerHour: number | null;
   halfLifeHours: number | null;
@@ -119,6 +138,7 @@ export interface RoomModel {
     bucketSecs: number;
     points: { t: string; g: number | null }[]; // ppm per hour
   };
+  occupancy: Occupancy;
 }
 
 export const fetchRoomModel = (device: string, from: Date, to: Date) =>
