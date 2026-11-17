@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { bucketGest, computeGest } from './gest.js';
-import type { SeriesPoint } from './lambda.js';
+import { bucketGest, computeGest } from '../../src/roomModel/gest.js';
+import type { SeriesPoint } from '../../src/roomModel/lambda.js';
 
 const MIN = 60_000;
 const OUTDOOR = 420;

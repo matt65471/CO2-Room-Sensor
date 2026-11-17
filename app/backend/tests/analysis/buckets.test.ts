@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_POINTS, pickBucketSecs } from './buckets.js';
+import { MAX_POINTS, pickBucketSecs } from '../../src/analysis/buckets.js';
 
 describe('pickBucketSecs', () => {
   it('uses 1-minute buckets for short windows', () => {

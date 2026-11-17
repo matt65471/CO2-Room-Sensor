@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chooseLookback } from './lookback.js';
+import { chooseLookback } from '../../src/roomModel/lookback.js';
 
 const DAY = 24 * 3600 * 1000;
 const at = (iso: string) => Date.parse(iso);

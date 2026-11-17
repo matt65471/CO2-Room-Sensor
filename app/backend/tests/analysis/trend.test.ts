@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyTrend } from './trend.js';
+import { classifyTrend } from '../../src/analysis/trend.js';
 
 describe('classifyTrend', () => {
   it('needs enough readings', () => {

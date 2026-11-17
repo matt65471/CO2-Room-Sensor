@@ -50,7 +50,8 @@ app/backend/src/
   db/                   Supabase client and queries
   analysis/             Consumer Dashboard maths: CO₂ trend, graph point widths
   roomModel/            The room model: λ (lambda.ts), G_est (gest.ts), labels (occupancy.ts),
-                        which data it learns from (lookback.ts); each with its tests
+                        which data it learns from (lookback.ts)
+app/backend/tests/      Unit tests, in the same folders as the code they test (npm test)
 
 app/frontend/src/
   App.tsx               header, sensor picker, °C/°F, and the switch between the two dashboards

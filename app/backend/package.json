@@ -6,7 +6,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "vitest run"
+    "test": "tsc -p tests && vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

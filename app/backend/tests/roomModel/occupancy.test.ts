@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { GestPoint } from './gest.js';
-import type { Decay } from './lambda.js';
-import { labelOccupancy, learnOccupancy, type OccupancyLabel } from './occupancy.js';
+import type { GestPoint } from '../../src/roomModel/gest.js';
+import type { Decay } from '../../src/roomModel/lambda.js';
+import { labelOccupancy, learnOccupancy, type OccupancyLabel } from '../../src/roomModel/occupancy.js';
 
 const MIN = 60_000;
 const START = Date.UTC(2026, 10, 1);

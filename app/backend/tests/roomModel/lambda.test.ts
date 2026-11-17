@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateLambda, fitSettlingLevel, findFalls, type SeriesPoint } from './lambda.js';
+import { estimateLambda, fitSettlingLevel, findFalls, type SeriesPoint } from '../../src/roomModel/lambda.js';
 
 const MIN = 60_000;
 const STEP = 5 * MIN;
