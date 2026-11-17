@@ -37,10 +37,11 @@ export function lastWindow(ms: number): TimeWindow {
 interface Props {
   value: TimeWindow;
   onChange: (window: TimeWindow) => void;
+  note?: string; // shown at the right, e.g. how wide each graph point is
 }
 
 // Choose the start and end of the period to analyse, or jump to a recent preset
-export default function TimeWindowPicker({ value, onChange }: Props) {
+export default function TimeWindowPicker({ value, onChange, note }: Props) {
   const [fromText, setFromText] = useState(toLocalInput(value.from));
   const [toText, setToText] = useState(toLocalInput(value.to));
 
@@ -81,6 +82,7 @@ export default function TimeWindowPicker({ value, onChange }: Props) {
         ))}
       </div>
       {problem && <span className="muted small">{problem}</span>}
+      {note && <span className="muted small picker-note">{note}</span>}
     </form>
   );
 }

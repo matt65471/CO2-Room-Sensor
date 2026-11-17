@@ -402,7 +402,7 @@ select {
 
 .analysis-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-columns: minmax(0, 1fr) 280px;
   gap: 16px;
   padding: 10px 16px;
 }
@@ -430,8 +430,27 @@ select {
   gap: 4px 12px;
 }
 
-.chart-placeholder.compact {
-  height: 150px;
+/* Chart heights scale with the window so all four Data Analysis rows fit on one screen */
+.analysis-chart {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fills its row (the stats table beside it may be taller), but never shorter than a quarter of what
+   is left of the screen: 510px ≈ header, tabs, time picker, row headings, gaps and the decay list line */
+.chart-box {
+  flex: 1;
+  min-height: clamp(90px, calc((100vh - 510px) / 4), 220px);
+  position: relative;
+}
+
+/* Pin the chart to the box's full size (a percentage height inside a flex item doesn't resolve reliably) */
+.chart-box > .recharts-responsive-container {
+  position: absolute;
+  inset: 0;
+}
+
+.chart-box.chart-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -439,12 +458,12 @@ select {
 }
 
 .stats.compact {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .stats.compact th,
 .stats.compact td {
-  padding: 4px 0;
+  padding: 3px 0;
 }
 
 .stats.compact tr:first-child th,
@@ -454,6 +473,11 @@ select {
 
 .stats .at {
   font-size: 0.75rem;
+  margin-right: 8px;
+}
+
+.picker-note {
+  margin-left: auto;
 }
 
 @media (max-width: 760px) {
@@ -462,32 +486,17 @@ select {
   }
 }
 
-/* Room air-change rate (λ) card */
-.lambda {
-  display: grid;
-  gap: 6px;
-  padding: 10px 16px;
-}
-
-.lambda-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 20px;
-  font-size: 0.9375rem;
-}
-
-.lambda-value {
-  font-size: 1.25rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+/* Room model (λ) summary beside the G_est chart */
+.room-summary p {
+  margin: 4px 0;
+  font-size: 0.75rem;
 }
 
 .lambda-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
+  font-size: 0.75rem;
   color: var(--muted);
   cursor: pointer;
 }
@@ -499,6 +508,10 @@ select {
   border-radius: 2px;
   opacity: 0.55;
   vertical-align: baseline;
+}
+
+.decay-details {
+  padding: 8px 16px;
 }
 
 .decay-details summary {

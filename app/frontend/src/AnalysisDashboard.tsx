@@ -2,15 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   fetchHistoryReadings,
   fetchHistoryStats,
-  fetchLambda,
+  fetchRoomModel,
   type HistoryReadings,
   type HistoryStats,
-  type LambdaResponse,
+  type RoomModel,
 } from './api';
 import { CO2_THRESHOLDS, withGaps } from './components/chartUtils';
-import LambdaCard, { VERDICTS } from './components/LambdaCard';
+import GestChart, { GEST_COLOR } from './components/GestChart';
 import MetricChart, { type Band } from './components/MetricChart';
 import MetricStatsTable from './components/MetricStatsTable';
+import { DecayLegend, DecayTable, RoomModelSummary, VERDICTS } from './components/RoomModel';
 import TimeWindowPicker, { lastWindow, type TimeWindow } from './components/TimeWindowPicker';
 import { METRICS, METRIC_ORDER, unitLabel, type TempUnit } from './metrics';
 import { load, save } from './storage';
@@ -28,12 +29,13 @@ interface Props {
   tempUnit: TempUnit;
 }
 
-// Past data for a chosen window: one chart and one statistics table per measurement
+// Past data for a chosen window: one chart and statistics table per measurement, then G_est (what the
+// occupants add, from the room model) beside the room air-change rate λ it is computed with
 export default function AnalysisDashboard({ device, tempUnit }: Props) {
   const [span, setSpan] = useState<TimeWindow>(() => lastWindow(24 * 3600 * 1000));
   const [readings, setReadings] = useState<HistoryReadings | null>(null);
   const [stats, setStats] = useState<HistoryStats | null>(null);
-  const [lambda, setLambda] = useState<LambdaResponse | null>(null);
+  const [model, setModel] = useState<RoomModel | null>(null);
   const [showDecays, setShowDecays] = useState(() => load(SHOW_DECAYS_KEY) !== 'false');
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +43,7 @@ export default function AnalysisDashboard({ device, tempUnit }: Props) {
     let cancelled = false;
     setReadings(null);
     setStats(null);
-    setLambda(null);
+    setModel(null);
     setError(null);
     fetchHistoryReadings(device, span.from, span.to)
       .then((r) => !cancelled && setReadings(r))
@@ -49,8 +51,8 @@ export default function AnalysisDashboard({ device, tempUnit }: Props) {
     fetchHistoryStats(device, span.from, span.to)
       .then((s) => !cancelled && setStats(s))
       .catch((e: Error) => !cancelled && setError(e.message));
-    fetchLambda(device, span.from, span.to)
-      .then((l) => !cancelled && setLambda(l))
+    fetchRoomModel(device, span.from, span.to)
+      .then((m) => !cancelled && setModel(m))
       .catch((e: Error) => !cancelled && setError(e.message));
     return () => {
       cancelled = true;
@@ -63,10 +65,10 @@ export default function AnalysisDashboard({ device, tempUnit }: Props) {
   );
   const decayBands = useMemo<Band[]>(
     () =>
-      showDecays && lambda
-        ? lambda.decays.map((d) => ({ x1: Date.parse(d.start), x2: Date.parse(d.end), color: VERDICTS[d.verdict].color }))
+      showDecays && model
+        ? model.decays.map((d) => ({ x1: Date.parse(d.start), x2: Date.parse(d.end), color: VERDICTS[d.verdict].color }))
         : [],
-    [lambda, showDecays],
+    [model, showDecays],
   );
 
   function chooseShowDecays(show: boolean) {
@@ -79,11 +81,13 @@ export default function AnalysisDashboard({ device, tempUnit }: Props) {
 
   return (
     <>
-      <TimeWindowPicker value={span} onChange={setSpan} />
+      <TimeWindowPicker
+        value={span}
+        onChange={setSpan}
+        note={readings ? `Each graph point averages ${describeBucket(readings.bucketSecs)}` : undefined}
+      />
 
       {error && <div className="error">Couldn't load data: {error}</div>}
-
-      <LambdaCard data={lambda} showDecays={showDecays} onShowDecays={chooseShowDecays} />
 
       {METRIC_ORDER.map((m) => (
         <section key={m} className="card analysis-row">
@@ -101,9 +105,7 @@ export default function AnalysisDashboard({ device, tempUnit }: Props) {
                   ))}
                 </span>
               )}
-              {m === 'co2' && readings && (
-                <span className="muted small">Each point averages {describeBucket(readings.bucketSecs)}</span>
-              )}
+              {m === 'co2' && showDecays && <DecayLegend />}
             </div>
             <MetricChart
               metric={m}
@@ -120,6 +122,28 @@ export default function AnalysisDashboard({ device, tempUnit }: Props) {
           </div>
         </section>
       ))}
+
+      <section className="card analysis-row">
+        <div className="analysis-chart">
+          <div className="card-header tight">
+            <h2>
+              <span style={{ color: GEST_COLOR }}>
+                G<sub>est</sub>
+              </span>{' '}
+              · CO₂ added by occupants <span className="muted">(ppm/h)</span>
+            </h2>
+            <span className="muted small">
+              G<sub>est</sub> = dC/dt + λ·(C − C<sub>out</sub>) · ≈ 0 means the room is empty
+            </span>
+          </div>
+          <GestChart model={model} start={start} end={end} syncId="analysis" />
+        </div>
+        <div className="analysis-stats">
+          <RoomModelSummary model={model} showDecays={showDecays} onShowDecays={chooseShowDecays} />
+        </div>
+      </section>
+
+      <DecayTable model={model} />
     </>
   );
 }

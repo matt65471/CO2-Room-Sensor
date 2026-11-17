@@ -164,6 +164,26 @@ The estimate always looks back at least 7 days, since one day usually has only o
 The Data Analysis tab shows λ, how long the excess CO₂ takes to halve (`ln 2 / λ`), the baseline, and
 every fall considered. Falls are shaded on the CO₂ chart by verdict.
 
+### G_est on the dashboard
+
+With λ and `C_out` known, the backend ([`app/backend/src/gest.ts`](app/backend/src/gest.ts)) computes
+`G_est` for every 5-minute point in the chosen window. `dC/dt` is the slope of a straight line through the
+readings 10 minutes either side of the point, and `C` is their mean. The Data Analysis tab plots it as its
+own chart, below humidity, with λ and the baseline beside it.
+
+On this room's first week, by time of day:
+
+| Period | Median G_est | Middle 50% | What's happening |
+|---|---|---|---|
+| 12:00–16:00 | 13 ppm/h | −7 to 40 | Out: empty room, ≈ 0 as expected |
+| 02:00–08:00 | 442 ppm/h | 402 to 499 | Asleep: steady |
+| 20:00–24:00 | 674 ppm/h | 425 to 793 | Awake: higher and more variable |
+
+`G_est` measures the total CO₂ being added, so two people give about twice the value. That makes
+"empty or not" reliable regardless of headcount, but means "2 people asleep" and "1 person awake" can look
+similar by `G_est` alone. The planned classifier will also use how steady `G_est` is, the time of night,
+and temperature and humidity, not just its size.
+
 On this room's first week of data: `C_out` ≈ 436 ppm and λ ≈ 1.0 per hour (12 empty-room decays). That's
 about one full air change per hour, so the excess CO₂ halves roughly every 42 minutes once the room is empty.
 

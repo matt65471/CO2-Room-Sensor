@@ -92,7 +92,8 @@ export const fetchHistoryReadings = (device: string, from: Date, to: Date) =>
 export const fetchHistoryStats = (device: string, from: Date, to: Date) =>
   getJson<HistoryStats>(`/api/history/stats?${windowParams(device, from, to)}`);
 
-// Room air-change rate λ, learned from empty-room CO2 decays (backend src/lambda.ts)
+// Room model: air-change rate λ learned from empty-room CO2 decays (backend src/lambda.ts),
+// and G_est over the chosen window (backend src/gest.ts)
 export type DecayVerdict = 'empty' | 'ventilation' | 'settles-above-baseline' | 'inconclusive' | 'irregular';
 
 export interface Decay {
@@ -106,15 +107,19 @@ export interface Decay {
   verdict: DecayVerdict;
 }
 
-export interface LambdaResponse {
-  from: string; // the estimate looks back at least 7 days, so this can be before the chosen window
+export interface RoomModel {
+  from: string; // λ looks back at least 7 days, so this can be before the chosen window
   to: string;
   baselinePpm: number | null;
   lambdaPerHour: number | null;
   halfLifeHours: number | null;
   samples: number;
   decays: Decay[];
+  gest: {
+    bucketSecs: number;
+    points: { t: string; g: number | null }[]; // ppm per hour
+  };
 }
 
-export const fetchLambda = (device: string, from: Date, to: Date) =>
-  getJson<LambdaResponse>(`/api/history/lambda?${windowParams(device, from, to)}`);
+export const fetchRoomModel = (device: string, from: Date, to: Date) =>
+  getJson<RoomModel>(`/api/history/room-model?${windowParams(device, from, to)}`);

@@ -36,15 +36,15 @@ export default function MetricStatsTable({ metric, stats, tempUnit }: Props) {
         <tr>
           <th scope="row">Low</th>
           <td>
+            {lowAt && <span className="muted at">{lowAt}</span>}
             {value(stats?.low)}
-            {lowAt && <div className="muted at">{lowAt}</div>}
           </td>
         </tr>
         <tr>
           <th scope="row">High</th>
           <td>
+            {highAt && <span className="muted at">{highAt}</span>}
             {value(stats?.high)}
-            {highAt && <div className="muted at">{highAt}</div>}
           </td>
         </tr>
         <tr>
