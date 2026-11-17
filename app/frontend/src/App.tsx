@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { fetchDevices, type Device } from './api';
-import AnalysisDashboard from './AnalysisDashboard';
-import ConsumerDashboard from './ConsumerDashboard';
-import { isTempUnit, type TempUnit } from './metrics';
-import { load, save } from './storage';
+import AnalysisDashboard from './dashboards/analysis/AnalysisDashboard';
+import ConsumerDashboard from './dashboards/consumer/ConsumerDashboard';
+import { isTempUnit, type TempUnit } from './lib/metrics';
+import { load, save } from './lib/storage';
 
 const REFRESH_MS = 60_000;
 const DEVICE_KEY = 'co2.device';

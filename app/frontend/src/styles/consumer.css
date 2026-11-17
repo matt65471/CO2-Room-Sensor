@@ -1,0 +1,124 @@
+/* Consumer Dashboard: latest-reading card and graph measurement chips */
+
+/* Trend card */
+.trend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.trend-now {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.big {
+  font-size: 2.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.badge {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  align-self: center;
+}
+
+.badge.good {
+  color: var(--good);
+  background: color-mix(in srgb, var(--good) 14%, transparent);
+}
+
+.badge.fair {
+  color: var(--fair);
+  background: color-mix(in srgb, var(--fair) 16%, transparent);
+}
+
+.badge.poor {
+  color: var(--poor);
+  background: color-mix(in srgb, var(--poor) 14%, transparent);
+}
+
+.trend-dir {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.arrow {
+  font-size: 2rem;
+  line-height: 1;
+  width: 2.5rem;
+  text-align: center;
+}
+
+.trend-dir.rising .arrow {
+  color: var(--poor);
+}
+
+.trend-dir.falling .arrow {
+  color: var(--good);
+}
+
+.trend-dir.steady .arrow,
+.trend-dir.insufficient .arrow {
+  color: var(--muted);
+}
+
+.trend-label {
+  font-weight: 600;
+}
+
+/* Graph measurement toggles (multi-select chips) */
+.metric-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chip.on {
+  color: var(--text);
+  border-color: var(--chip-color);
+  background: color-mix(in srgb, var(--chip-color) 12%, transparent);
+}
+
+.chip:disabled {
+  cursor: not-allowed;
+}
+
+.chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--chip-color);
+}
+
+.chip.on .chip-dot {
+  background: var(--chip-color);
+}
+
+.latest-env {
+  flex-basis: 100%;
+}

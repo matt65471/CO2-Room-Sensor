@@ -9,9 +9,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { Range, ReadingsResponse } from '../api';
-import { METRICS, formatDisplayed, unitLabel, type Metric, type TempUnit } from '../metrics';
-import { GRID, MUTED, domainFor, tooltipStyle, withGaps } from './chartUtils';
+import type { Range, ReadingsResponse } from '../../api';
+import { METRICS, formatDisplayed, unitLabel, type Metric, type TempUnit } from '../../lib/metrics';
+import { GRID, MUTED, domainFor, tooltipStyle, withGaps } from '../../charts/chartUtils';
 
 // Fixed axis widths, so the plot area stays the same size whichever measurements are shown.
 // Space for the maximum number of right-hand axes is always reserved; unused space becomes margin.

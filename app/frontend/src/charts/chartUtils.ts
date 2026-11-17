@@ -1,6 +1,6 @@
 // Helpers shared by the Consumer Dashboard chart and the Data Analysis charts
 import type { Point } from '../api';
-import { toDisplay, type Metric, type TempUnit } from '../metrics';
+import { toDisplay, type Metric, type TempUnit } from '../lib/metrics';
 
 export const MUTED = '#8a8f98';
 export const GRID = 'rgba(138, 143, 152, 0.25)';
@@ -58,3 +58,19 @@ export const CO2_THRESHOLDS = [
   { ppm: 800, color: '#d9a400', label: 'getting stuffy' },
   { ppm: 1200, color: '#d64545', label: 'ventilate' },
 ] as const;
+
+// A shaded stretch of time, e.g. a CO2 decay
+export interface Band {
+  x1: number;
+  x2: number;
+  color: string;
+}
+
+// Tick labels get coarser as the window gets longer
+export function formatWindowTick(time: number, spanMs: number): string {
+  const d = new Date(time);
+  const day = 24 * 3600 * 1000;
+  if (spanMs <= day) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (spanMs <= 7 * day) return d.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}

@@ -1,8 +1,11 @@
-// Types and fetch helpers for the backend API (app/backend/src/routes.ts)
+// Shapes of the backend API's responses (app/backend/src/routes/)
 
-import type { Metric } from './metrics';
+import type { Metric } from '../lib/metrics';
+
+// ---- Sensor picker and Consumer Dashboard (routes/devices.ts, routes/dashboard.ts) ----
 
 export type Range = '1h' | '24h' | '3d';
+
 export type TrendDirection = 'rising' | 'falling' | 'steady' | 'insufficient';
 
 export interface Device {
@@ -48,30 +51,8 @@ export interface Summary {
   };
 }
 
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    let message = `Request failed (HTTP ${res.status})`;
-    try {
-      const body = await res.json();
-      if (body?.error) message = body.error;
-    } catch {
-      // Body wasn't JSON (e.g. the backend isn't running); keep the generic message
-    }
-    throw new Error(message);
-  }
-  return res.json() as Promise<T>;
-}
+// ---- Data Analysis: any chosen window (routes/history.ts) ----
 
-export const fetchDevices = () => getJson<Device[]>('/api/devices');
-
-export const fetchReadings = (device: string, range: Range) =>
-  getJson<ReadingsResponse>(`/api/readings?device=${encodeURIComponent(device)}&range=${range}`);
-
-export const fetchSummary = (device: string) =>
-  getJson<Summary>(`/api/summary?device=${encodeURIComponent(device)}`);
-
-// Data Analysis tab: any chosen window
 export interface HistoryReadings {
   from: string;
   to: string;
@@ -81,19 +62,9 @@ export interface HistoryReadings {
 
 export type HistoryStats = { from: string; to: string } & Record<Metric, MetricStats>;
 
-function windowParams(device: string, from: Date, to: Date): string {
-  const q = new URLSearchParams({ device, from: from.toISOString(), to: to.toISOString() });
-  return q.toString();
-}
+// ---- Data Analysis: room model (routes/roomModel.ts) ----
 
-export const fetchHistoryReadings = (device: string, from: Date, to: Date) =>
-  getJson<HistoryReadings>(`/api/history/readings?${windowParams(device, from, to)}`);
-
-export const fetchHistoryStats = (device: string, from: Date, to: Date) =>
-  getJson<HistoryStats>(`/api/history/stats?${windowParams(device, from, to)}`);
-
-// Room model: air-change rate λ learned from empty-room CO2 decays (backend src/lambda.ts),
-// and G_est over the chosen window (backend src/gest.ts)
+// Air-change rate λ, learned from empty-room CO2 decays (backend roomModel/lambda.ts)
 export type DecayVerdict = 'empty' | 'ventilation' | 'settles-above-baseline' | 'inconclusive' | 'irregular';
 
 export interface Decay {
@@ -107,8 +78,9 @@ export interface Decay {
   verdict: DecayVerdict;
 }
 
-// Empty / active / asleep labels for G_est, with thresholds learned from the data (backend src/occupancy.ts)
+// Empty / active / asleep labels for G_est, thresholds learned from the data (backend roomModel/occupancy.ts)
 export type OccupancyLabel = 'empty' | 'active' | 'asleep' | 'unknown';
+
 export type OccupancyEventType = 'arrived' | 'left' | 'fell-asleep' | 'woke-up';
 
 export interface Occupancy {
@@ -140,6 +112,3 @@ export interface RoomModel {
   };
   occupancy: Occupancy;
 }
-
-export const fetchRoomModel = (device: string, from: Date, to: Date) =>
-  getJson<RoomModel>(`/api/history/room-model?${windowParams(device, from, to)}`);

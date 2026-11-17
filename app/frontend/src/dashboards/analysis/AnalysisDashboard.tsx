@@ -6,15 +6,18 @@ import {
   type HistoryReadings,
   type HistoryStats,
   type RoomModel,
-} from './api';
-import { CO2_THRESHOLDS, withGaps } from './components/chartUtils';
-import GestChart, { GEST_COLOR } from './components/GestChart';
-import MetricChart, { type Band } from './components/MetricChart';
-import MetricStatsTable from './components/MetricStatsTable';
-import { DecayLegend, DecayTable, OccupancyLegend, RoomModelSummary, VERDICTS } from './components/RoomModel';
-import TimeWindowPicker, { lastWindow, type TimeWindow } from './components/TimeWindowPicker';
-import { METRICS, METRIC_ORDER, unitLabel, type TempUnit } from './metrics';
-import { load, save } from './storage';
+} from '../../api';
+import { CO2_THRESHOLDS, withGaps, type Band } from '../../charts/chartUtils';
+import GestChart, { GEST_COLOR } from './GestChart';
+import MetricChart from './MetricChart';
+import MetricStatsTable from './MetricStatsTable';
+import { VERDICTS } from './roomModel/colors';
+import DecayTable from './roomModel/DecayTable';
+import { DecayLegend, OccupancyLegend } from './roomModel/Legends';
+import RoomModelSummary from './roomModel/RoomModelSummary';
+import TimeWindowPicker, { lastWindow, type TimeWindow } from './TimeWindowPicker';
+import { METRICS, METRIC_ORDER, unitLabel, type TempUnit } from '../../lib/metrics';
+import { load, save } from '../../lib/storage';
 
 const SHOW_DECAYS_KEY = 'co2.showDecays';
 const SHOW_LABELS_KEY = 'co2.showLabels';

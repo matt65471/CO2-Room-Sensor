@@ -1,0 +1,217 @@
+/* Data Analysis: wider and tighter, so all three charts and tables fit one full screen */
+.page.wide {
+  max-width: 1400px;
+  gap: 12px;
+  padding-bottom: 24px;
+}
+
+.window-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 16px;
+}
+
+.window-picker label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.window-picker input {
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+
+.apply {
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #fff;
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.apply:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.analysis-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  padding: 10px 16px;
+}
+
+.analysis-chart {
+  min-width: 0;
+}
+
+.analysis-stats {
+  align-self: center;
+}
+
+.card-header.tight {
+  justify-content: flex-start;
+  gap: 4px 16px;
+  margin-bottom: 4px;
+}
+
+.card-header.tight h2 {
+  font-size: 0.9375rem;
+}
+
+.chart-legend.inline {
+  margin: 0;
+  gap: 4px 12px;
+}
+
+/* Chart heights scale with the window so all four Data Analysis rows fit on one screen */
+.analysis-chart {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fills its row (the stats table beside it may be taller), but never shorter than a quarter of what
+   is left of the screen: 560px ≈ header, tabs, time picker, row headings (plus the legend lines
+   under the CO₂ and G_est headings), gaps and the decay list line */
+.chart-box {
+  flex: 1;
+  min-height: clamp(85px, calc((100vh - 560px) / 4), 220px);
+  position: relative;
+}
+
+/* Pin the chart to the box's full size (a percentage height inside a flex item doesn't resolve reliably) */
+.chart-box > .recharts-responsive-container {
+  position: absolute;
+  inset: 0;
+}
+
+.chart-box.chart-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+}
+
+.stats.compact {
+  font-size: 0.8125rem;
+}
+
+.stats.compact th,
+.stats.compact td {
+  padding: 2px 0;
+}
+
+.stats.compact tr:first-child th,
+.stats.compact tr:first-child td {
+  border-top: 0;
+}
+
+.stats .at {
+  font-size: 0.75rem;
+  margin-right: 8px;
+}
+
+.legend-line {
+  flex-basis: 100%;
+}
+
+/* "Change of state" sample in the G_est legend: a short dashed line */
+.dash-swatch {
+  display: inline-block;
+  width: 14px;
+  border-top: 2px dashed var(--muted);
+  vertical-align: middle;
+}
+
+.toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+
+.picker-note {
+  margin-left: auto;
+}
+
+@media (max-width: 760px) {
+  .analysis-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Room model (λ) summary beside the G_est chart */
+.room-summary p {
+  margin: 4px 0;
+  font-size: 0.75rem;
+}
+
+.lambda-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.band-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 10px;
+  border-radius: 2px;
+  opacity: 0.55;
+  vertical-align: baseline;
+}
+
+.decay-details {
+  padding: 8px 16px;
+}
+
+.decay-details summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.decay-scroll {
+  max-height: 240px;
+  overflow: auto;
+  margin-top: 6px;
+}
+
+.decays {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.decays th,
+.decays td {
+  text-align: left;
+  padding: 4px 12px 4px 0;
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.decays th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  font-weight: 500;
+  color: var(--muted);
+  border-top: 0;
+}

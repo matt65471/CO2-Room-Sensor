@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { fetchReadings, fetchSummary, type Range, type ReadingsResponse, type Summary } from './api';
-import MetricToggle from './components/MetricToggle';
-import ReadingsChart from './components/ReadingsChart';
-import RangeTabs from './components/RangeTabs';
-import StatsTable from './components/StatsTable';
-import TrendCard from './components/TrendCard';
-import { isMetric, type Metric, type TempUnit } from './metrics';
-import { load, save } from './storage';
+import { fetchReadings, fetchSummary, type Range, type ReadingsResponse, type Summary } from '../../api';
+import MetricToggle from './MetricToggle';
+import ReadingsChart from './ReadingsChart';
+import RangeTabs from './RangeTabs';
+import StatsTable from './StatsTable';
+import TrendCard from './TrendCard';
+import { isMetric, type Metric, type TempUnit } from '../../lib/metrics';
+import { load, save } from '../../lib/storage';
 
 const METRICS_KEY = 'co2.graphMetrics';
 

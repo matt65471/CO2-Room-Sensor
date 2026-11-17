@@ -9,10 +9,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { RoomModel } from '../api';
-import { GRID, MUTED, tooltipStyle } from './chartUtils';
-import { formatWindowTick } from './MetricChart';
-import { EVENTS, OCCUPANCY } from './RoomModel';
+import type { RoomModel } from '../../api';
+import { formatWindowTick, GRID, MUTED, tooltipStyle } from '../../charts/chartUtils';
+import { EVENTS, OCCUPANCY } from './roomModel/colors';
 
 // Event lines get a text label only when there's room for it: on windows up to 3 days, and only
 // if the previous labelled line is at least 6% of the chart's width away (the line itself always shows)

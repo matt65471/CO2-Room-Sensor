@@ -1,5 +1,5 @@
-import type { Summary, TrendDirection } from '../api';
-import { formatValue, type TempUnit } from '../metrics';
+import type { Summary, TrendDirection } from '../../api';
+import { formatValue, type TempUnit } from '../../lib/metrics';
 
 const TREND: Record<TrendDirection, { arrow: string; label: string }> = {
   rising: { arrow: '↑', label: 'Rising' },

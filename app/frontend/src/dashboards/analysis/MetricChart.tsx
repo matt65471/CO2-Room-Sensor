@@ -1,22 +1,15 @@
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { METRICS, formatDisplayed, unitLabel, type Metric, type TempUnit } from '../metrics';
-import { CO2_THRESHOLDS, GRID, MUTED, domainFor, tooltipStyle, type ChartPoint } from './chartUtils';
-
-// A shaded stretch of time, e.g. a CO2 decay
-export interface Band {
-  x1: number;
-  x2: number;
-  color: string;
-}
-
-// Tick labels get coarser as the window gets longer
-export function formatWindowTick(time: number, spanMs: number): string {
-  const d = new Date(time);
-  const day = 24 * 3600 * 1000;
-  if (spanMs <= day) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (spanMs <= 7 * day) return d.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
+import { METRICS, formatDisplayed, unitLabel, type Metric, type TempUnit } from '../../lib/metrics';
+import {
+  CO2_THRESHOLDS,
+  GRID,
+  MUTED,
+  domainFor,
+  formatWindowTick,
+  tooltipStyle,
+  type Band,
+  type ChartPoint,
+} from '../../charts/chartUtils';
 
 interface Props {
   metric: Metric;
@@ -39,7 +32,7 @@ export default function MetricChart({ metric, points, start, end, tempUnit, sync
     return <div className="chart-box chart-placeholder">No {info.label.toLowerCase()} readings in this window.</div>;
   }
 
-  // The box's height scales with the window (index.css), so every chart on the tab fits on one screen
+  // The box's height scales with the window (styles/analysis.css), so every chart on the tab fits on one screen
   return (
     <div className="chart-box">
       <ResponsiveContainer width="100%" height="100%">

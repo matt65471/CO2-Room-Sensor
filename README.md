@@ -36,6 +36,33 @@ npm run dev        # backend on :3001, frontend on http://localhost:5173
 
 Other commands: `npm test` (backend unit tests), `npm run build` (type-check and build both).
 
+## App layout
+
+```
+app/backend/src/
+  index.ts              Express server
+  routes/               HTTP endpoints, grouped by the part of the app that uses them
+    devices.ts            GET /devices (sensor picker)
+    dashboard.ts          GET /readings, /summary (Consumer Dashboard)
+    history.ts            GET /history/readings, /history/stats (Data Analysis charts and tables)
+    roomModel.ts          GET /history/room-model (λ, G_est and its labels)
+    http.ts               request validation and error responses
+  db/                   Supabase client and queries
+  analysis/             Consumer Dashboard maths: CO₂ trend, graph point widths
+  roomModel/            The room model: λ (lambda.ts), G_est (gest.ts), labels (occupancy.ts),
+                        which data it learns from (lookback.ts); each with its tests
+
+app/frontend/src/
+  App.tsx               header, sensor picker, °C/°F, and the switch between the two dashboards
+  api/                  response types (types.ts) and fetch calls (client.ts)
+  lib/                  measurement names, units and formatting; saved preferences
+  charts/               chart helpers shared by both dashboards
+  dashboards/consumer/  Consumer Dashboard and its components
+  dashboards/analysis/  Data Analysis tab and its components
+    roomModel/            λ summary, decay list, legends and colours for the room model
+  styles/               base.css (shared), consumer.css, analysis.css
+```
+
 ## How the room model works
 
 The Data Analysis tab estimates how quickly the room exchanges air with the outside. This is the first
@@ -114,7 +141,7 @@ With nobody in the room `G = 0`, and the equation becomes an exponential decay t
 C(t) = C_out + (C₀ − C_out) · e^(−λt)      so      ln(C − C_out) falls in a straight line with slope −λ
 ```
 
-The backend ([`app/backend/src/lambda.ts`](app/backend/src/lambda.ts)) does this automatically:
+The backend ([`app/backend/src/roomModel/lambda.ts`](app/backend/src/roomModel/lambda.ts)) does this automatically:
 
 1. Average the readings into 5-minute points and take `C_out` as their 2nd percentile.
 2. Find every stretch where CO₂ keeps falling (small upticks under 20 ppm count as noise), at least 45 minutes long,
@@ -174,7 +201,7 @@ about one full air change per hour, so the excess CO₂ halves roughly every 42 
 
 ### G_est on the dashboard
 
-With λ and `C_out` known, the backend ([`app/backend/src/gest.ts`](app/backend/src/gest.ts)) computes
+With λ and `C_out` known, the backend ([`app/backend/src/roomModel/gest.ts`](app/backend/src/roomModel/gest.ts)) computes
 `G_est` for every 5-minute point in the chosen window. `dC/dt` is the slope of a straight line through the
 readings 10 minutes either side of the point, and `C` is their mean. The Data Analysis tab plots it as its
 own chart, below humidity, with λ and the baseline beside it.
@@ -217,14 +244,14 @@ refreshes once a minute):
   The "empty-room fall" verdicts it comes from only work in hindsight anyway.
 
 **Pieces to build:**
-- **Backend.** A `GET /api/live?device=` endpoint in `app/backend/src/routes.ts` that:
+- **Backend.** A `GET /api/live?device=` endpoint, in a new `app/backend/src/routes/live.ts`, that:
   - fetches the last 15 minutes of readings;
-  - gets λ and `C_out` from `estimateLambda` (`app/backend/src/lambda.ts`), cached per device for an hour;
+  - gets λ and `C_out` from `estimateLambda` (`app/backend/src/roomModel/lambda.ts`), cached per device for an hour;
   - returns the latest CO₂, `G_est`, the number of readings used, and the label.
-- **Calculation.** A backward-only version of `computeGest` in `app/backend/src/gest.ts`. It can reuse
+- **Calculation.** A backward-only version of `computeGest` in `app/backend/src/roomModel/gest.ts`. It can reuse
   the existing least-squares slope (`slopeAndMean`).
 - **Frontend.** Show `G_est` and the label in the Consumer Dashboard's top card
-  (`app/frontend/src/components/TrendCard.tsx`), fetched on the existing one-minute refresh.
+  (`app/frontend/src/dashboards/consumer/TrendCard.tsx`), fetched on the existing one-minute refresh.
 - **Tests.** Simulated data like `gest.test.ts`: after someone arrives or leaves, the label should flip
   within about 15 minutes.
 

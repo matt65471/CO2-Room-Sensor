@@ -1,4 +1,4 @@
-import { METRICS, METRIC_ORDER, type Metric } from '../metrics';
+import { METRICS, METRIC_ORDER, type Metric } from '../../lib/metrics';
 
 interface Props {
   selected: Metric[];

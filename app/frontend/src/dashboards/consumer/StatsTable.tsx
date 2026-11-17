@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { Summary } from '../api';
-import { METRICS, METRIC_ORDER, formatValue, type Metric, type TempUnit } from '../metrics';
+import type { Summary } from '../../api';
+import { METRICS, METRIC_ORDER, formatValue, type Metric, type TempUnit } from '../../lib/metrics';
 
 interface Props {
   summary: Summary | null;

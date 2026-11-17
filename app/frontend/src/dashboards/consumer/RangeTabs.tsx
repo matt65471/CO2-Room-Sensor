@@ -1,4 +1,4 @@
-import type { Range } from '../api';
+import type { Range } from '../../api';
 
 const OPTIONS: { value: Range; label: string }[] = [
   { value: '1h', label: 'Past hour' },

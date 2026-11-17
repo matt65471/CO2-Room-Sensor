@@ -1,5 +1,5 @@
-import type { MetricStats } from '../api';
-import { METRICS, formatValue, type Metric, type TempUnit } from '../metrics';
+import type { MetricStats } from '../../api';
+import { METRICS, formatValue, type Metric, type TempUnit } from '../../lib/metrics';
 
 interface Props {
   metric: Metric;
