@@ -35,3 +35,137 @@ npm run dev        # backend on :3001, frontend on http://localhost:5173
 ```
 
 Other commands: `npm test` (backend unit tests), `npm run build` (type-check and build both).
+
+## How the room model works
+
+The Data Analysis tab estimates how quickly the room exchanges air with the outside. This is the first
+step towards classifying what is happening in the room (empty, someone present, asleep, window open)
+from CO₂ alone.
+
+### The equation
+
+Treat the room as one box of evenly mixed air:
+
+| Symbol | Meaning | Units |
+|---|---|---|
+| `V` | Room volume | m³ |
+| `C` | CO₂ concentration in the room | ppm |
+| `C_out` | CO₂ concentration of the air coming in (outdoors / rest of the house) | ppm |
+| `Q` | Airflow through the room (the same amount comes in as goes out) | m³/h |
+| `E` | CO₂ breathed out by the people in the room | m³ CO₂/h |
+
+The amount of CO₂ in the room is `V·C`. It changes by what comes in minus what goes out:
+
+```
+V · dC/dt  =  E          +  Q·C_out          −  Q·C
+              breathed      carried in by       carried out by
+              out           fresh air           room air
+```
+
+The fresh-air term is *positive*: outdoor air still contains about 420 ppm of CO₂, so it brings some in.
+Ventilation lowers CO₂ because the two airflow terms together, `Q·C_out − Q·C = −Q·(C − C_out)`, are
+negative whenever the room is above outdoor levels. The air leaving carries more CO₂ than the air
+arriving. This is also why an aired-out room settles at `C_out`, not at zero.
+
+Divide by `V`:
+
+```
+dC/dt = G − λ·(C − C_out)
+
+λ = Q/V   air-change rate: room volumes of fresh air per hour       (1/h)
+G = E/V   how fast the people in the room push the CO₂ level up    (ppm/h)
+```
+
+In words: CO₂ rises with whatever people breathe out and falls in proportion to how far above outdoor
+levels the room is.
+
+### Estimating G, and why it matters
+
+Solving the same equation for the one thing we can't measure directly:
+
+```
+G_est = dC/dt + λ·(C − C_out)
+```
+
+| Input | Where it comes from |
+|---|---|
+| `C` | Measured by the sensor every minute |
+| `dC/dt` | Slope of a straight-line fit over 15–20 minutes. The minute-to-minute slope is too noisy |
+| `C_out` | The 2nd percentile of the past week's readings: the level the room reaches when fully aired out |
+| `λ` | Learned from empty-room decays (below) |
+
+Slope alone can't tell you whether anyone is in the room:
+
+- **Flat CO₂ can mean either state.** CO₂ flat at 450 ppm means an empty room. Flat at 900 ppm means someone is there and their
+  breathing exactly balances the ventilation. Both have `dC/dt = 0`.
+- **A fall isn't always someone leaving.** After someone leaves, CO₂ falls quickly at first and then slowly. That's the room airing out,
+  not a change in the people. A fall can also just mean someone fell asleep and is breathing less.
+
+`G_est` removes the ventilation part and leaves only what the occupants contribute. `G_est ≈ 0` means
+the room is empty, whatever the CO₂ level. A resting adult adds about 0.3 L of CO₂ per minute (about
+600 ppm/h in a 30 m³ room), and somewhat less when asleep, so `G_est` also says roughly how many people
+are there and whether they are asleep. You never need the room's volume, because `G` is already per volume.
+
+### Measuring λ
+
+With nobody in the room `G = 0`, and the equation becomes an exponential decay towards outdoor levels:
+
+```
+C(t) = C_out + (C₀ − C_out) · e^(−λt)      so      ln(C − C_out) falls in a straight line with slope −λ
+```
+
+The backend ([`app/backend/src/lambda.ts`](app/backend/src/lambda.ts)) does this automatically:
+
+1. Average the readings into 5-minute points and take `C_out` as their 2nd percentile.
+2. Find every stretch where CO₂ keeps falling (small upticks under 20 ppm count as noise), at least 45 minutes long,
+   starting 200+ ppm above baseline and falling 150+ ppm.
+3. Fit `ln(C − C_out)` against time, using only points 60+ ppm above baseline. Closer in, a small error in
+   `C_out` would dominate.
+4. Decide whether the room was **empty or occupied** during the fall (see "Heading to" below). Only
+   empty-room falls can be used to measure λ.
+5. Keep empty-room falls that follow a clean exponential (R² ≥ 0.95). A fall more than 2.5× faster than
+   usual is a door or window opening, not the room's normal air exchange. λ is the median of what's left.
+
+#### "Heading to": was the room empty or occupied during a fall?
+
+CO₂ falls in two different situations, and they look alike at first:
+
+| | Someone leaves | Someone falls asleep |
+|---|---|---|
+| Example from this room | Morning, 1000 → 430 ppm | 1–3 a.m., 1130 → 830 ppm |
+| Is anyone still adding CO₂? | No | Yes, just less than before |
+| Usable for λ? | **Yes** | **No**: it would make λ about 10× too small |
+
+The difference is in the **shape** of the fall:
+
+- **Empty room:** CO₂ keeps decreasing exponentially, curving down towards `C_out`. Nothing is adding CO₂,
+  so the excess keeps shrinking by the same fraction every hour until it is gone.
+- **Occupied room:** CO₂ **flattens out** above `C_out`, at the level where the CO₂ the occupants still breathe
+  out balances what ventilation removes (`C_out + G/λ`).
+
+To tell them apart, the backend fits `C = C_eq + A·e^(−λt)` to the fall without assuming where it ends,
+and reads off `C_eq`, the level the curve flattens out at. That is the **Heading to** value on the dashboard:
+
+| Heading to | Verdict |
+|---|---|
+| Within 100 ppm of `C_out` | Was still decreasing exponentially: **room empty**, λ used |
+| More than 100 ppm above `C_out` | Was flattening out: **room occupied**, λ not used |
+| Can't be worked out (fall too short to show any curve) | Too short to judge, λ not used |
+
+Why not just check where the fall ended? Falls are often cut short when someone comes back in, so the end
+point only shows *when* that happened. On Nov 11, CO₂ fell 870 → 600 ppm and then rose again. Ending at
+600 (164 ppm above baseline) looks occupied. But it was still decreasing steeply, not flattening, and its
+curve heads to 481 ppm, so the room was empty until someone came back.
+
+This also points to a later use: a fall whose curve was heading to baseline but which ended well above it
+means **someone re-entered** at the moment it ended. The dashboard doesn't flag that yet.
+
+The estimate always looks back at least 7 days, since one day usually has only one or two empty periods.
+The Data Analysis tab shows λ, how long the excess CO₂ takes to halve (`ln 2 / λ`), the baseline, and
+every fall considered. Falls are shaded on the CO₂ chart by verdict.
+
+On this room's first week of data: `C_out` ≈ 436 ppm and λ ≈ 1.0 per hour (12 empty-room decays). That's
+about one full air change per hour, so the excess CO₂ halves roughly every 42 minutes once the room is empty.
+
+The model assumes evenly mixed air, a steady λ (doors and windows change it), a steady `C_out`, and no
+other CO₂ sources such as a gas stove or a candle.

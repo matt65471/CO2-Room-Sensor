@@ -1,9 +1,16 @@
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { METRICS, formatDisplayed, unitLabel, type Metric, type TempUnit } from '../metrics';
 import { CO2_THRESHOLDS, GRID, MUTED, domainFor, tooltipStyle, type ChartPoint } from './chartUtils';
 
 // Compact, so all three charts and tables fit on one full-screen view
-export const METRIC_CHART_HEIGHT = 160;
+export const METRIC_CHART_HEIGHT = 150;
+
+// A shaded stretch of time, e.g. a CO2 decay
+export interface Band {
+  x1: number;
+  x2: number;
+  color: string;
+}
 
 // Tick labels get coarser as the window gets longer
 export function formatWindowTick(time: number, spanMs: number): string {
@@ -21,10 +28,11 @@ interface Props {
   end: number;
   tempUnit: TempUnit;
   syncId?: string;
+  bands?: Band[];
 }
 
 // One measurement on its own chart. Charts sharing a syncId show their tooltips together.
-export default function MetricChart({ metric, points, start, end, tempUnit, syncId }: Props) {
+export default function MetricChart({ metric, points, start, end, tempUnit, syncId, bands = [] }: Props) {
   const info = METRICS[metric];
 
   if (!points) {
@@ -38,6 +46,19 @@ export default function MetricChart({ metric, points, start, end, tempUnit, sync
     <ResponsiveContainer width="100%" height={METRIC_CHART_HEIGHT}>
       <LineChart data={points} syncId={syncId} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
         <CartesianGrid stroke={GRID} vertical={false} />
+        {bands
+          .filter((b) => b.x2 > start && b.x1 < end)
+          .map((b) => (
+            <ReferenceArea
+              key={b.x1}
+              x1={Math.max(b.x1, start)}
+              x2={Math.min(b.x2, end)}
+              fill={b.color}
+              fillOpacity={0.14}
+              stroke="none"
+              ifOverflow="hidden"
+            />
+          ))}
         <XAxis
           dataKey="time"
           type="number"

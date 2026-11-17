@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabase } from './supabase.js';
 import { classifyTrend } from './trend.js';
 import { pickBucketSecs } from './buckets.js';
+import { estimateLambda } from './lambda.js';
 
 // How far back each graph range goes, and how wide each averaged point is
 const RANGES = {
@@ -191,4 +192,60 @@ router.get('/history/stats', async (req, res) => {
     };
   };
   res.json({ from, to, co2: stats('co2'), temp: stats('temp'), humidity: stats('humidity') });
+});
+
+// Room air-change rate λ, learned from how CO2 decays while the room is empty.
+// Looks back at least LAMBDA_MIN_LOOKBACK (one day rarely has enough decays), at most LAMBDA_MAX_LOOKBACK.
+const LAMBDA_BUCKET_SECS = 5 * 60;
+const LAMBDA_MIN_LOOKBACK_MS = 7 * 24 * 3600 * 1000;
+const LAMBDA_MAX_LOOKBACK_MS = 60 * 24 * 3600 * 1000;
+const PAGE_ROWS = 1000; // Supabase's default maximum rows per request
+
+router.get('/history/lambda', async (req, res) => {
+  const parsed = windowQuery.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: WINDOW_HELP });
+    return;
+  }
+  const { device } = parsed.data;
+  const to = Date.parse(parsed.data.to);
+  const span = Math.min(Math.max(to - Date.parse(parsed.data.from), LAMBDA_MIN_LOOKBACK_MS), LAMBDA_MAX_LOOKBACK_MS);
+  const from = to - span;
+
+  const points: { t: number; ppm: number }[] = [];
+  for (let offset = 0; ; offset += PAGE_ROWS) {
+    const { data, error } = await supabase
+      .rpc('get_readings_between', {
+        p_device: device,
+        p_from: new Date(from).toISOString(),
+        p_to: new Date(to).toISOString(),
+        p_bucket_secs: LAMBDA_BUCKET_SECS,
+      })
+      .range(offset, offset + PAGE_ROWS - 1);
+    if (error) {
+      dbError(res, error);
+      return;
+    }
+    const page = data as { t: string; ppm: unknown }[];
+    for (const p of page) {
+      const ppm = num(p.ppm);
+      if (ppm !== null) points.push({ t: Date.parse(p.t), ppm });
+    }
+    if (page.length < PAGE_ROWS) break;
+  }
+
+  const est = estimateLambda(points);
+  res.json({
+    from: new Date(from).toISOString(),
+    to: new Date(to).toISOString(),
+    baselinePpm: est.baselinePpm,
+    lambdaPerHour: est.lambdaPerHour,
+    halfLifeHours: est.halfLifeHours,
+    samples: est.samples,
+    decays: est.decays.map((d) => ({
+      ...d,
+      start: new Date(d.start).toISOString(),
+      end: new Date(d.end).toISOString(),
+    })),
+  });
 });

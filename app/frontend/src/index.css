@@ -431,7 +431,7 @@ select {
 }
 
 .chart-placeholder.compact {
-  height: 160px;
+  height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -460,4 +460,78 @@ select {
   .analysis-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* Room air-change rate (λ) card */
+.lambda {
+  display: grid;
+  gap: 6px;
+  padding: 10px 16px;
+}
+
+.lambda-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 20px;
+  font-size: 0.9375rem;
+}
+
+.lambda-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.lambda-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.band-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 10px;
+  border-radius: 2px;
+  opacity: 0.55;
+  vertical-align: baseline;
+}
+
+.decay-details summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.decay-scroll {
+  max-height: 240px;
+  overflow: auto;
+  margin-top: 6px;
+}
+
+.decays {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.decays th,
+.decays td {
+  text-align: left;
+  padding: 4px 12px 4px 0;
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.decays th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  font-weight: 500;
+  color: var(--muted);
+  border-top: 0;
 }

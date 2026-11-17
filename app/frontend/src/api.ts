@@ -91,3 +91,30 @@ export const fetchHistoryReadings = (device: string, from: Date, to: Date) =>
 
 export const fetchHistoryStats = (device: string, from: Date, to: Date) =>
   getJson<HistoryStats>(`/api/history/stats?${windowParams(device, from, to)}`);
+
+// Room air-change rate λ, learned from empty-room CO2 decays (backend src/lambda.ts)
+export type DecayVerdict = 'empty' | 'ventilation' | 'settles-above-baseline' | 'inconclusive' | 'irregular';
+
+export interface Decay {
+  start: string;
+  end: string;
+  startPpm: number;
+  endPpm: number;
+  lambda: number;
+  r2: number;
+  settlesAt: number | null;
+  verdict: DecayVerdict;
+}
+
+export interface LambdaResponse {
+  from: string; // the estimate looks back at least 7 days, so this can be before the chosen window
+  to: string;
+  baselinePpm: number | null;
+  lambdaPerHour: number | null;
+  halfLifeHours: number | null;
+  samples: number;
+  decays: Decay[];
+}
+
+export const fetchLambda = (device: string, from: Date, to: Date) =>
+  getJson<LambdaResponse>(`/api/history/lambda?${windowParams(device, from, to)}`);
